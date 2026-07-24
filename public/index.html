@@ -194,12 +194,9 @@
   .srow { cursor: pointer; }
   .srow:hover td { background: var(--panel-2); }
 
-  /* summary: order line (screen+print) + print-only diagram */
+  /* summary: order line (screen) */
   .q-order { margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
   .q-order:empty { display: none; }
-  .q-diagram { display: none; }
-  .q-print-head, .tl-print, .q-foot { display: none; }
-  .q-diagram img { display: block; max-width: 240px; margin: 12px 20px 0; border: 1px solid var(--line); border-radius: 8px; }
 
   /* saved-order detail modal */
   .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 18px; }
@@ -220,6 +217,9 @@
   .dm-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
   .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
   .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); }
+  .dm-spec { margin-top: 12px; }
+  .dm-actions { margin-top: 20px; display: flex; gap: 10px; }
+  .dm-actions .btn { flex: 0 0 auto; padding: 10px 18px; font-size: 13px; }
 
   /* agreed price override */
   .agreed { padding: 4px 20px 14px; }
@@ -291,48 +291,53 @@
 
   footer.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--muted); }
 
+  /* ===== dedicated print document (built on demand, hidden on screen) ===== */
+  #printDoc { display: none; }
   @media print {
-    @page { margin: 15mm; }
+    @page { margin: 16mm; }
     body { background: #fff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .wrap { max-width: 100%; margin: 0; padding: 0; }
-    /* strip all UI chrome — print only the quote */
-    header.top, .skukey, .config, .actions, .agreed, .clear-err, .demo-note, .guide, #savedCard, .mbar, .modal, footer.foot,
-    .summary .k, .summary .tnote { display: none !important; }
-    .layout { display: block; }
-    .summary { position: static; }
-    .card.summary { border: 0; box-shadow: none; border-radius: 0; padding: 0; }
+    /* print only the built document — hide the whole app (form, saved table, modal, mobile bar) */
+    body > *:not(#printDoc) { display: none !important; }
+    #printDoc {
+      display: block !important;
+      max-width: 100%; color: #111;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-    /* document header */
-    .q-print-head { display: flex !important; align-items: flex-end; justify-content: space-between; border-bottom: 2.5px solid #111; padding-bottom: 8px; margin-bottom: 16px; }
-    .q-title { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: #111; }
-    .q-date { font-size: 11.5px; color: #555; }
+    /* title bar */
+    .pd-head { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2.5px solid #111; padding-bottom: 9px; margin-bottom: 18px; }
+    .pd-title { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #444; }
+    .pd-date { font-size: 11.5px; color: #666; }
 
-    /* spec + order line */
-    .summary .head { padding: 0; border: 0; }
-    .summary .spec { font-size: 15px; line-height: 1.5; color: #111; margin: 0; }
-    .summary .spec b { color: #111; font-weight: 700; }
-    .q-order { font-size: 15px; font-weight: 700; color: #111; margin-top: 6px; }
+    /* order number — top of the flow, most prominent */
+    .pd-order { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: #111; margin-bottom: 4px; }
+    .pd-spec { font-size: 15px; line-height: 1.5; color: #222; margin-bottom: 18px; }
+    .pd-spec b { color: #111; font-weight: 700; }
 
     /* line-item table */
-    .lines { padding: 14px 0 4px; max-height: none; overflow: visible; }
-    .li { border-bottom: 1px solid #d8d8d8; font-size: 13.5px; padding: 8px 2px; page-break-inside: avoid; }
-    .li:first-child { border-top: 1px solid #d8d8d8; }
-    .li .lname, .li.base .lname { color: #111; }
-    .li .lname small { color: #555; }
-    .li .lval { color: #111; }
+    table.pd-lines { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.pd-lines td { padding: 9px 2px; border-bottom: 1px solid #dcdcdc; vertical-align: top; }
+    table.pd-lines tr:first-child td { border-top: 1px solid #dcdcdc; }
+    table.pd-lines td.pd-r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: #111; }
+    table.pd-lines .pd-note { color: #666; font-size: 12.5px; }
+    table.pd-lines tr.pd-base td { font-weight: 700; color: #111; }
 
-    /* total */
-    .total { border-top: 2.5px solid #111; padding: 12px 2px; margin-top: 2px; page-break-inside: avoid; }
-    .total .tl { display: none; }
-    .total .tl-print { display: inline; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #333; font-weight: 700; }
-    .total .tv { color: #111; font-size: 26px; }
+    /* total + agreed */
+    .pd-total { display: flex; align-items: baseline; justify-content: space-between; border-top: 2.5px solid #111; margin-top: 2px; padding-top: 13px; page-break-inside: avoid; }
+    .pd-total .l { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #333; font-weight: 700; }
+    .pd-total .v { font-size: 27px; font-weight: 800; color: #111; }
+    .pd-agreed { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #111; }
+    .pd-agreed .l { font-weight: 600; }
+    .pd-agreed .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .pd-note-total { margin-top: 6px; font-size: 12px; color: #666; text-align: right; }
 
     /* diagram */
-    .q-diagram { display: block !important; page-break-inside: avoid; }
-    .q-diagram img { margin: 22px 0 0; max-width: 300px; border: 1px solid #999; border-radius: 4px; }
+    .pd-diagram { margin-top: 24px; page-break-inside: avoid; }
+    .pd-diagram img { max-width: 300px; max-height: 340px; border: 1px solid #999; border-radius: 4px; }
+    .pd-diagram .cap { font-size: 11px; color: #777; margin-top: 6px; }
 
     /* footer note */
-    .q-foot { display: block !important; margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10.5px; color: #666; }
+    .pd-foot { margin-top: 26px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10.5px; color: #666; }
   }
 </style>
 
@@ -440,10 +445,6 @@
 
     <!-- SUMMARY -->
     <div class="card summary">
-      <div class="q-print-head" aria-hidden="true">
-        <span class="q-title">Price Quote</span>
-        <span class="q-date" id="qDate"></span>
-      </div>
       <div class="head">
         <div class="k">Quote</div>
         <div class="spec" id="spec"></div>
@@ -453,13 +454,10 @@
       <div class="total">
         <div class="toprow">
           <span class="tl">Calculated</span>
-          <span class="tl-print">Total</span>
           <span class="tv num" id="total">£0.00</span>
         </div>
         <div class="tnote" id="totalNote"></div>
       </div>
-      <div class="q-diagram" id="qDiagram"></div>
-      <div class="q-foot" aria-hidden="true">Prices shown in GBP. Generated by the Bespoke Mattress Price Calculator.</div>
       <div class="agreed">
         <label for="agreed">Agreed price £ <span class="hint">override if the actual price differs</span></label>
         <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
@@ -533,6 +531,9 @@
   <div class="modal-backdrop" id="detailBackdrop"></div>
   <div class="modal-card" id="detailCard"></div>
 </div>
+
+<!-- print document: built on demand by renderPrintDoc(), the only thing shown when printing -->
+<div id="printDoc" aria-hidden="true"></div>
 
 <script>
 (function () {
@@ -1130,7 +1131,6 @@
     var dg = $("orderDiagram");
     if (url) { dg.innerHTML = '<img src="' + esc(url) + '" alt="Order diagram" loading="lazy"><div class="cap">Order diagram — check the cuts before pricing</div>'; dg.hidden = false; }
     else { dg.hidden = true; dg.innerHTML = ""; }
-    $("qDiagram").innerHTML = url ? '<img src="' + esc(url) + '" alt="Order diagram">' : "";
   }
   function updateQuoteHeader() {
     var o = $("orderNo").value.trim();
@@ -1155,17 +1155,66 @@
     $("detailCard").innerHTML =
       '<button class="dm-close" id="dmClose" type="button" aria-label="Close">✕</button>' +
       '<div class="dm-order">' + esc(r.order) + '</div>' +
-      '<div class="dm-sub">' + esc(r.model) + '<br>' + esc(r.size) + ' · ' + esc(r.depth) + ' · Carriage: ' + esc(r.carriage || "None") + '</div>' +
       img +
+      '<div class="dm-sub dm-spec">' + esc(r.model) + '<br>' + esc(r.size) + ' · ' + esc(r.depth) + ' · Carriage: ' + esc(r.carriage || "None") + '</div>' +
       '<div class="dm-sec-h">Price breakdown</div>' + linesHtml +
       '<div class="dm-line"><span class="n">Calculated</span><span class="v">' + calc + '</span></div>' +
       deltaHtml +
       '<div class="dm-total"><span class="tl">Agreed price</span><span class="tv">' + agreed + '</span></div>' +
-      '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>';
+      '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>' +
+      '<div class="dm-actions"><button class="btn ghost" id="dmPrint" type="button">Print this order</button></div>';
     $("detailModal").hidden = false;
     $("dmClose").addEventListener("click", closeDetail);
+    $("dmPrint").addEventListener("click", function () { renderPrintDoc(r); window.print(); });
   }
   function closeDetail() { $("detailModal").hidden = true; }
+
+  // ---------- printable quote document (order # at top, everything under it) ----------
+  // Normalise the live on-screen quote to the same shape as a saved record.
+  function currentQuoteForPrint() {
+    var q = window.__lastQuote; if (!q) return null;
+    var av = $("agreed").value.trim();
+    return {
+      order: $("orderNo").value.trim(),
+      model: q.sku.name + " · " + q.build.label,
+      size: q.size.label, depth: q.depth, carriage: carriageLabel(),
+      lines: q.r.lines, calc: q.r.poa ? null : q.r.total,
+      agreed: av === "" ? null : parseFloat(av),
+      poa: q.r.poa, known: q.r.known, diagram: currentDiagram || null
+    };
+  }
+  // Build the print-only document from a normalised record (live quote OR saved order).
+  function renderPrintDoc(d) {
+    if (!d) return false;
+    var linesHtml = (d.lines || []).map(function (l) {
+      var isBase = /^base\b/i.test(l.name || "");
+      return '<tr' + (isBase ? ' class="pd-base"' : '') + '><td>' + esc(l.name) +
+        (l.note ? ' <span class="pd-note">(' + esc(l.note) + ')</span>' : '') + '</td>' +
+        '<td class="pd-r">' + (l.val == null ? 'POA' : money(l.val)) + '</td></tr>';
+    }).join("");
+    var specBits = [d.size, d.depth].filter(Boolean).join(" · ");
+    var spec = '<b>' + esc(d.model || "") + '</b>' + (specBits ? '<br>' + esc(specBits) : "");
+    var totalTxt = d.calc == null ? 'POA' : money(d.calc);
+    var totalNote = "";
+    if (d.calc == null) totalNote = d.known > 0 ? 'plus ' + money(d.known) + ' known charges (base priced by hand)' : 'base priced by hand';
+    var agreedHtml = "";
+    if (d.agreed != null && d.agreed !== d.calc) {
+      agreedHtml = '<div class="pd-agreed"><span class="l">Agreed price</span><span class="v">' + money(d.agreed) + '</span></div>';
+    }
+    var imgHtml = d.diagram ? '<div class="pd-diagram"><img src="' + esc(d.diagram) + '" alt="Order diagram"><div class="cap">Order shape diagram</div></div>' : '';
+    var date = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    $("printDoc").innerHTML =
+      '<div class="pd-head"><span class="pd-title">Price Quote</span><span class="pd-date">' + esc(date) + '</span></div>' +
+      (d.order ? '<div class="pd-order">Order ' + esc(d.order) + '</div>' : '') +
+      '<div class="pd-spec">' + spec + '</div>' +
+      '<table class="pd-lines"><tbody>' + linesHtml + '</tbody></table>' +
+      '<div class="pd-total"><span class="l">Total</span><span class="v">' + totalTxt + '</span></div>' +
+      (totalNote ? '<div class="pd-note-total">' + esc(totalNote) + '</div>' : '') +
+      agreedHtml +
+      imgHtml +
+      '<div class="pd-foot">Prices shown in GBP. Generated by the Bespoke Mattress Price Calculator.</div>';
+    return true;
+  }
 
   function initTheme() {
     $("themeToggle").addEventListener("click", function () {
@@ -1182,7 +1231,7 @@
   initTheme();
   $("copyBtn").addEventListener("click", copyQuote);
   $("printBtn").addEventListener("click", function () {
-    $("qDate").textContent = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    if (!renderPrintDoc(currentQuoteForPrint())) { flash($("printBtn"), "Finish the quote first"); return; }
     window.print();
   });
   $("saveBtn").addEventListener("click", saveQuote);
