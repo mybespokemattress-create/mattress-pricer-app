@@ -1,0 +1,1086 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bespoke Mattress Price Calculator — Sample</title>
+<style>
+  :root {
+    --bg: #eef2f5;
+    --panel: #ffffff;
+    --panel-2: #f6f9fb;
+    --ink: #14163d;
+    --body: #3a3f52;
+    --muted: #6b7280;
+    --line: #e2e8ee;
+    --line-strong: #cdd7e0;
+    --accent: #12a594;
+    --accent-deep: #0c7c6f;
+    --accent-wash: #e7f5f2;
+    --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07);
+    --radius: 14px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1320; --panel: #161d2b; --panel-2: #1b2434;
+      --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
+      --line: #26303f; --line-strong: #33404f;
+      --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef2f5; --panel: #ffffff; --panel-2: #f6f9fb; --ink: #14163d; --body: #3a3f52; --muted: #6b7280;
+    --line: #e2e8ee; --line-strong: #cdd7e0; --accent: #12a594; --accent-deep: #0c7c6f; --accent-wash: #e7f5f2;
+    --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07); color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1320; --panel: #161d2b; --panel-2: #1b2434; --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
+    --line: #26303f; --line-strong: #33404f; --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--body);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 20px 64px; }
+
+  header.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(150deg, var(--accent), var(--accent-deep)); display: grid; place-items: center; color: #fff; flex: 0 0 auto; }
+  h1 { margin: 0; font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+  .brand p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .theme-btn { border: 1px solid var(--line-strong); background: var(--panel); color: var(--body); border-radius: 9px; padding: 8px 12px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .theme-btn:hover { border-color: var(--accent); color: var(--ink); }
+
+  .demo-note { margin: 16px 0 22px; padding: 11px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--panel-2); font-size: 12.5px; color: var(--muted); }
+  .demo-note strong { color: var(--ink); }
+
+  /* SKU key (collapsible) */
+  .skukey { margin: 0 0 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+  .skukey > summary { cursor: pointer; padding: 12px 16px; font-size: 13.5px; font-weight: 700; color: var(--ink); list-style: none; display: flex; align-items: center; gap: 8px; }
+  .skukey > summary::-webkit-details-marker { display: none; }
+  .skukey > summary::before { content: '▸'; color: var(--accent-deep); font-size: 12px; }
+  .skukey[open] > summary::before { content: '▾'; }
+  .skukey > summary:hover { background: var(--panel-2); }
+  .skukey-body { padding: 2px 8px 10px; overflow-x: auto; }
+  table.skukey-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.skukey-t th, table.skukey-t td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.skukey-t th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  table.skukey-t tr:last-child td { border-bottom: 0; }
+  table.skukey-t td b { color: var(--ink); }
+
+  /* auto-set foam build notice */
+  .autobuild { font-size: 13px; color: var(--body); background: var(--accent-wash); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+  .autobuild b { color: var(--ink); }
+  .autobuild .hint { color: var(--muted); font-weight: 400; }
+
+  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 22px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .config > .sec + .sec { border-top: 1px solid var(--line); }
+  .sec { padding: 20px 22px; }
+  .sec h2 { margin: 0 0 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--accent-deep); display: flex; align-items: center; gap: 8px; }
+  .sec h2 .step { width: 20px; height: 20px; border-radius: 6px; background: var(--accent-wash); color: var(--accent-deep); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+
+  label.fld { display: block; margin-bottom: 14px; }
+  label.fld:last-child { margin-bottom: 0; }
+  .fld .lab { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .fld .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+  select {
+    width: 100%; font: inherit; font-size: 15px; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px;
+    padding: 11px 12px; appearance: none;
+  }
+  select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .select-wrap { position: relative; }
+  .select-wrap::after { content: ''; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .sizenote { margin-top: 4px; font-size: 12.5px; color: var(--muted); min-height: 1.2em; }
+  .sizenote b { color: var(--accent-deep); }
+
+  /* extras */
+  .extras { display: flex; flex-direction: column; gap: 4px; }
+  .ex { display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 9px; border-left: 2px solid transparent; }
+  .ex:hover { background: var(--panel-2); }
+  .ex.active { background: var(--accent-wash); border-left-color: var(--accent); }
+  .ex.dragging { opacity: .45; }
+  .ex.dropzone { background: var(--panel-2); }
+  .sechint { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }
+  .sechint .g { color: var(--accent-deep); letter-spacing: 1px; }
+  .ex .grip { flex: 0 0 auto; cursor: grab; color: var(--muted); font-size: 15px; line-height: 1; letter-spacing: 1px; padding: 2px 3px; user-select: none; }
+  .ex .grip:hover { color: var(--accent-deep); }
+  .ex .grip:active { cursor: grabbing; }
+  .ex .meta { flex: 1 1 auto; min-width: 0; }
+  .ex .name { display: block; font-size: 14px; color: var(--ink); font-weight: 500; line-height: 1.35; }
+  .ex .sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .ex .ctrl { flex: 0 0 auto; width: 172px; display: flex; justify-content: flex-end; align-items: center; }
+  .ex .price { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+  .ex .qty, .ex .choice { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 8px; }
+  .ex .qty { width: 64px; text-align: center; }
+  .ex .choice { max-width: 172px; }
+  .ex .tog { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .ex .qty:focus, .ex .choice:focus, .ex .tog:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  @media (max-width: 480px) { .ex .ctrl { width: 140px; } .ex .choice { max-width: 140px; } .ex .price { min-width: 72px; } }
+  /* miscellaneous free line */
+  .ex.misc .meta { flex: 0 0 auto; }
+  .ex.misc .ctrl { flex: 1 1 auto; width: auto; gap: 8px; }
+  .ex.misc .price { display: none; }
+  .misc-desc, .misc-amt { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 8px; }
+  .misc-desc { flex: 1 1 auto; min-width: 60px; }
+  .misc-amt { width: 84px; flex: 0 0 auto; text-align: right; }
+  .misc-desc:focus, .misc-amt:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* summary */
+  .summary { position: sticky; top: 18px; }
+  .summary .head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+  .summary .head .k { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--accent-deep); font-weight: 700; }
+  .summary .spec { margin-top: 8px; font-size: 13.5px; color: var(--body); }
+  .summary .spec b { color: var(--ink); font-weight: 600; }
+  .lines { padding: 8px 20px; max-height: 320px; overflow-y: auto; }
+  .li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13.5px; border-bottom: 1px dashed var(--line); }
+  .li:last-child { border-bottom: 0; }
+  .li .lname { color: var(--body); }
+  .li .lname small { color: var(--muted); }
+  .li .lval { color: var(--ink); font-weight: 600; }
+  .li.base .lname { font-weight: 600; color: var(--ink); }
+  .li.poa .lval { color: var(--accent-deep); }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .total { padding: 16px 20px; border-top: 2px solid var(--line-strong); }
+  .total .toprow { display: flex; align-items: baseline; justify-content: space-between; }
+  .total .tl { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+  .total .tv { font-size: 30px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+  .total .tnote { margin-top: 5px; font-size: 12px; color: var(--muted); text-align: right; }
+  .actions { padding: 0 20px 18px; display: flex; gap: 10px; }
+  .btn { flex: 1; border: 0; border-radius: 10px; padding: 12px; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: #04201c; }
+  .btn.primary:hover { background: var(--accent-deep); color: #fff; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line-strong); color: var(--body); flex: 0 0 auto; }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--ink); }
+  .actions.two { padding-top: 0; }
+  .actions.two .btn { flex: 1; }
+  .clear-err { margin: 2px 20px 16px; padding: 10px 12px; border-radius: 8px; background: #fdecea; color: #b02a1f; border: 1px solid #f3c0bb; font-size: 12.5px; font-weight: 600; }
+  .clear-err b { font-weight: 800; }
+  @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(18,165,148,.55); } 100% { box-shadow: 0 0 0 9px rgba(18,165,148,0); } }
+  .btn.pulse { animation: pulseRing .7s ease-out 2; }
+  @media (prefers-reduced-motion: reduce) { .btn.pulse { animation: none; } }
+
+  /* text / number inputs */
+  .txtin { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 12px; }
+  .txtin:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .txtin.err { border-color: #d9534f; background: #fdf2f2; }
+
+  /* order-number autocomplete + pulled-order panel */
+  .ac-wrap { position: relative; }
+  .ac { position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 40; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); max-height: 260px; overflow-y: auto; }
+  .ac-item { padding: 10px 12px; cursor: pointer; font-size: 14px; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .ac-item:last-child { border-bottom: 0; }
+  .ac-item:hover { background: var(--accent-wash); }
+  .order-status { margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--accent-deep); }
+  .order-status.err { color: #b02a1f; }
+  .order-status:empty { display: none; }
+  .order-diagram { margin-top: 12px; }
+  .order-diagram img { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+  .order-diagram .cap { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+  /* agreed price override */
+  .agreed { padding: 4px 20px 14px; }
+  .agreed label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .agreed .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+  /* saved quotes */
+  .saved-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 20px 4px; }
+  .saved-head h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
+  .saved-actions { display: flex; gap: 8px; }
+  .saved-actions .btn { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; }
+  .saved-note { padding: 0 20px 10px; font-size: 12px; color: var(--muted); }
+  .tablewrap { overflow-x: auto; padding: 0 6px 10px; }
+  table.saved-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.saved-t th, table.saved-t td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+  table.saved-t th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  table.saved-t td.r, table.saved-t th.r { text-align: right; font-variant-numeric: tabular-nums; }
+  table.saved-t tr:last-child td { border-bottom: 0; }
+  .delta.pos { color: #c0392b; font-weight: 700; }
+  .delta.neg { color: var(--good); font-weight: 700; }
+  .rowdel { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
+  .rowdel:hover { color: #c0392b; }
+
+  /* how-to guide */
+  .guide { margin-top: 22px; padding: 20px 22px; }
+  .guide h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--ink); }
+  .guide .lead { margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .guide .lead b { color: var(--ink); }
+  .guide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 26px; }
+  @media (max-width: 640px) { .guide-grid { grid-template-columns: 1fr; } }
+  .guide-item { display: flex; gap: 12px; align-items: flex-start; }
+  .gchip { flex: 0 0 auto; display: inline-block; min-width: 80px; text-align: center; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 700; border: 1px solid var(--line-strong); color: var(--body); background: var(--panel); }
+  .gchip.primary { background: var(--accent); color: #04201c; border-color: transparent; }
+  .guide-item p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--body); }
+  .guide-item p strong { color: var(--ink); }
+
+  /* ===== mobile sticky action bar ===== */
+  .mbar { display: none; }
+  .mbar-info { flex: 1 1 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; background: none; border: 0; padding: 4px 2px; cursor: pointer; text-align: left; }
+  .mbar-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .mbar-total { font-size: 23px; font-weight: 800; color: var(--ink); line-height: 1.05; }
+  .mbar-save { flex: 0 0 auto; padding: 14px 30px; font-size: 15px; }
+
+  /* ===== phone polish ===== */
+  @media (max-width: 860px) {
+    .summary { position: static; }
+    .wrap { padding-bottom: 96px; }
+    .mbar {
+      display: flex; align-items: center; gap: 12px;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      padding: 9px 16px calc(9px + env(safe-area-inset-bottom, 0px));
+      background: var(--panel); border-top: 1px solid var(--line);
+      box-shadow: 0 -6px 24px rgba(20,22,61,.14);
+    }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 14px 100px; }
+    h1 { font-size: 17px; }
+    .sec { padding: 18px 16px; }
+    .head, .lines, .agreed, .actions, .total { padding-left: 16px; padding-right: 16px; }
+    select, .txtin, #agreed, .ex .qty, .ex .choice, .misc-desc, .misc-amt { font-size: 16px; padding-top: 12px; padding-bottom: 12px; }
+    .ex { padding: 10px 6px; }
+    .ex .tog { width: 24px; height: 24px; }
+    .ex .ctrl { width: 132px; }
+    .ex .choice { max-width: 132px; }
+    .ex .price { font-size: 12px; }
+    .guide-grid { gap: 12px; }
+  }
+
+  footer.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--muted); }
+
+  @media print {
+    body { background: #fff; }
+    header.top .theme-btn, .config, .actions, .agreed, .demo-note, .guide, #savedCard, .mbar, footer.foot { display: none !important; }
+    .layout { display: block; }
+    .summary { position: static; }
+    .card { box-shadow: none; border-color: #ccc; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><path d="M2 11h20"/><path d="M6 7V5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5V7"/></svg>
+      </span>
+      <div>
+        <h1>Bespoke Mattress Price Calculator</h1>
+        <p>Foam build &times; size &times; depth, plus finishing surcharges</p>
+      </div>
+    </div>
+    <button class="theme-btn" id="themeToggle" type="button" aria-label="Toggle light/dark">
+      <span id="themeIcon">◐</span><span id="themeLabel">Theme</span>
+    </button>
+  </header>
+
+  <div class="demo-note">
+    <strong>Prices from your production schedule.</strong> Pick the <b>SKU</b> and the tool narrows everything else down to avoid input error. Working version for review.
+  </div>
+
+  <details class="skukey">
+    <summary>SKU Key — not sure which SKU? Tap to look it up</summary>
+    <div class="skukey-body">
+      <table class="skukey-t">
+        <thead><tr><th>SKU</th><th>Foam build(s)</th></tr></thead>
+        <tbody id="skuKeyBody"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <div class="layout">
+    <!-- CONFIG -->
+    <div class="card config">
+      <div class="sec">
+        <h2><span class="step">#</span> Order</h2>
+        <label class="fld" style="margin-bottom:0;">
+          <span class="lab">Order number <span class="hint">(required to save)</span></span>
+          <div class="ac-wrap">
+            <input type="text" id="orderNo" class="txtin" placeholder="CARA1234" autocomplete="off">
+            <div class="ac" id="orderAc" hidden></div>
+          </div>
+        </label>
+        <div class="order-status" id="orderStatus"></div>
+        <div class="order-diagram" id="orderDiagram" hidden></div>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">1</span> SKU</h2>
+        <label class="fld">
+          <span class="lab">SKU <span class="hint">(from the order — use the SKU Key above if unsure)</span></span>
+          <div class="select-wrap"><select id="sku"></select></div>
+        </label>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">2</span> Foam build &amp; depth</h2>
+        <div id="buildPick" hidden>
+          <label class="fld">
+            <span class="lab">Foam build <span class="hint">(this SKU has two — choose one)</span></span>
+            <div class="select-wrap"><select id="build"></select></div>
+          </label>
+        </div>
+        <div class="autobuild" id="buildAuto" hidden></div>
+        <label class="fld" style="margin-top:14px;">
+          <span class="lab">Depth</span>
+          <div class="select-wrap"><select id="depth"></select></div>
+        </label>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">3</span> Size</h2>
+        <label class="fld">
+          <span class="lab">Size</span>
+          <div class="select-wrap"><select id="size"></select></div>
+        </label>
+        <div class="sizenote" id="sizeNote" aria-live="polite"></div>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">4</span> Finishing &amp; extras</h2>
+        <p class="sechint">Drag <span class="g">⠿</span> to reorder — put your most-used at the top. The order is remembered.</p>
+        <div class="extras" id="extras"></div>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">5</span> Carriage</h2>
+        <label class="fld">
+          <span class="lab">Courier</span>
+          <div class="select-wrap"><select id="carriage">
+            <option value="none">None / collection</option>
+            <option value="dpd">DPD — £15</option>
+            <option value="dx">DX — £30</option>
+            <option value="manual">Other — enter price</option>
+          </select></div>
+        </label>
+        <label class="fld" id="carriageManual" hidden>
+          <span class="lab">Carriage price £</span>
+          <input type="number" id="carriageAmt" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="£">
+        </label>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="card summary">
+      <div class="head">
+        <div class="k">Quote</div>
+        <div class="spec" id="spec"></div>
+      </div>
+      <div class="lines" id="lines"></div>
+      <div class="total">
+        <div class="toprow">
+          <span class="tl">Calculated</span>
+          <span class="tv num" id="total">£0.00</span>
+        </div>
+        <div class="tnote" id="totalNote"></div>
+      </div>
+      <div class="agreed">
+        <label for="agreed">Agreed price £ <span class="hint">override if the actual price differs</span></label>
+        <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
+      </div>
+      <div class="actions two">
+        <button class="btn primary" id="saveBtn" type="button">Save Price</button>
+        <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+      </div>
+      <div class="actions two">
+        <button class="btn ghost" id="copyBtn" type="button">Copy</button>
+        <button class="btn ghost" id="printBtn" type="button">Print</button>
+      </div>
+      <div class="clear-err" id="clearErr" hidden>⚠ Please <b>Save</b> this quote before clearing.</div>
+    </div>
+  </div>
+
+  <div class="card guide">
+    <h2>How to use this tool</h2>
+    <p class="lead">Enter the <b>Order number</b>, pick the <b>SKU</b> (the SKU Key at the top helps if it isn't on the paperwork), choose the <b>foam build</b> if the SKU offers two, then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
+    <div class="guide-grid">
+      <div class="guide-item">
+        <span class="gchip primary">Save Price</span>
+        <p><strong>Saves this order to the Invoiced Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and agreed price and the date — so any order can be checked back later.</p>
+      </div>
+      <div class="guide-item">
+        <span class="gchip">Clear</span>
+        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current quote first: Clear is blocked and shows a warning until the quote is saved. It never deletes anything already saved.</p>
+      </div>
+      <div class="guide-item">
+        <span class="gchip">Copy</span>
+        <p><strong>Copies the quote as text</strong> to paste into an email or message. Nothing is saved.</p>
+      </div>
+      <div class="guide-item">
+        <span class="gchip">Print</span>
+        <p><strong>Prints just the quote</strong> (form hidden). Use your printer, or choose “Save as PDF” to keep a copy.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="savedCard" style="display:none; margin-top:22px;">
+    <div class="saved-head">
+      <h2>Invoiced Orders <span id="savedCount" style="color:var(--muted); font-weight:600;"></span></h2>
+      <div class="saved-actions">
+        <button class="btn ghost" id="exportBtn" type="button">Export CSV</button>
+        <button class="btn ghost" id="wipeBtn" type="button">Clear all</button>
+      </div>
+    </div>
+    <div class="saved-note" id="savedNote">Loading…</div>
+    <div class="tablewrap">
+      <table class="saved-t">
+        <thead><tr>
+          <th>Order</th><th>Item</th><th class="r">Calculated</th><th class="r">Agreed</th><th class="r">Difference</th><th>Saved</th><th></th>
+        </tr></thead>
+        <tbody id="savedBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="foot">Bespoke mattress pricing tool · prices from the production schedule</footer>
+</div>
+
+<div class="mbar" id="mbar" aria-hidden="false">
+  <button class="mbar-info" id="mbarInfo" type="button">
+    <span class="mbar-label">Total <span aria-hidden="true">·</span> tap for breakdown</span>
+    <span class="mbar-total num" id="mbarTotal">£0.00</span>
+  </button>
+  <button class="btn primary mbar-save" id="mbarSave" type="button">Save</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Sizes — standard four map to the grid; Circle & Oversized are priced by hand.
+  var SIZES = [
+    { key: "single", label: "Single",     grid: true },
+    { key: "double", label: "Double",     grid: true },
+    { key: "king",   label: "King",       grid: true },
+    { key: "sking",  label: "Super King", grid: true },
+    { key: "oversized", label: "Oversized", poa: true, note: "Oversized — over 183cm wide or 200cm long: call for a price (POA)." }
+  ];
+
+  // ---------- Depth sets (labels; aligned to each build's price arrays) ----------
+  var DFULL  = ['2″ (5cm)', '3″ (7.5cm)', '4″ (10cm)', '5″ (12.5cm)', '6″ (15cm)', '8″ (20cm)', '10″ (25cm)'];
+  var D1TOP  = ['5″+1″ (6″ / 15cm)', '7″+1″ (8″ / 20cm)', '9″+1″ (10″ / 25cm)'];
+  var D2TOP  = ['4″+2″ (6″ / 15cm)', '6″+2″ (8″ / 20cm)', '8″+2″ (10″ / 25cm)'];
+  var DGRAND = ['6″+2″ (8″ / 20cm)', '8″+2″ (10″ / 25cm)'];
+  var DBODYT = ['1″ (2.5cm)', '2″ (5cm)', '3″ (7.5cm)', '4″ (10cm)', '5″ (12.5cm)'];
+  var DCOOLT = ['2″ (5cm)', '3″ (7.5cm)'];
+
+  // ---------- SKUs → foam build(s) → price grid (from the production schedule) ----------
+  // grid[sizeKey] is an array aligned to that build's `depths`.
+  var SKUS = [
+    { id: "essential", name: "Essential", builds: [
+      { id: "ess-white", label: "30/130 White", full: "30/130 White", depths: DFULL, grid: {
+        single: [50,56,63,70,80,90,105], double: [62,70,80,90,100,115,135],
+        king: [69,77,87,97,110,125,150], sking: [85,95,105,120,135,155,190] } },
+      { id: "ess-blue", label: "33/175 Blue", full: "33/175 Blue", depths: DFULL, grid: {
+        single: [60,66,73,80,90,100,115], double: [72,80,90,100,110,125,145],
+        king: [79,87,97,107,120,135,160], sking: [95,105,115,130,145,165,200] } }
+    ]},
+    { id: "novo", name: "Novo", builds: [
+      { id: "novo", label: "RF39/120 Peach", full: "33/175 Blue + 30/130 White + RF39/120 Peach", depths: DFULL, grid: {
+        single: [80,86,93,100,110,120,135], double: [92,100,110,120,130,145,165],
+        king: [99,107,117,127,140,155,180], sking: [115,125,135,150,165,185,220] } }
+    ]},
+    { id: "body", name: "Body", builds: [
+      { id: "body-1v40", label: "1″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 1″ Vasco 40", depths: D1TOP, grid: {
+        single: [115,128,140], double: [135,150,165], king: [145,160,180], sking: [170,190,210] } },
+      { id: "body-2v40", label: "2″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 2″ Vasco 40", depths: D2TOP, grid: {
+        single: [120,135,150], double: [145,165,185], king: [155,175,200], sking: [185,210,235] } }
+    ]},
+    { id: "cool", name: "Cool", builds: [
+      { id: "cool-1fr", label: "1″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 1″ FR50/125", depths: D1TOP, grid: {
+        single: [160,167.5,196], double: [195,210.25,243.5], king: [210,224.5,262.5], sking: [230,248.25,291] } },
+      { id: "cool-2fr", label: "2″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 2″ FR50/125", depths: D2TOP, grid: {
+        single: [160,175,205], double: [195,220,255], king: [210,235,275], sking: [230,260,305] } }
+    ]},
+    { id: "grand", name: "Grand", builds: [
+      { id: "grand-v40", label: "2″ Vasco 40", full: "33/175 + RF39/120 + 2″ Vasco 40", depths: DGRAND, grid: {
+        single: [130,145], double: [160,180], king: [170,195], sking: [205,230] } },
+      { id: "grand-v60", label: "2″ Vasco 60", full: "33/175 + RF39/120 + 2″ Vasco 60", depths: DGRAND, grid: {
+        single: [182.5,214], double: [229.75,266.5], king: [245.5,287.5], sking: [271.75,319] } }
+    ]},
+    { id: "bodyt", name: "BodyT", builds: [
+      { id: "bodyt", label: "Vasco 40 (topper)", full: "Vasco 40", depths: DBODYT, grid: {
+        single: [40,50,60,75,85], double: [55,65,78,95,105], king: [62,70,82,100,110], sking: [74,88,104,120,130] } }
+    ]},
+    { id: "coolt", name: "CoolT", builds: [
+      { id: "coolt", label: "FR50/125 (topper)", full: "FR50/125", depths: DCOOLT, grid: {
+        single: [70,80], double: [100,110], king: [110,120], sking: [130,145] } }
+    ]}
+  ];
+
+  // ---------- Carriage ----------
+  var CARRIAGE = { dpd: { label: "DPD", price: 15 }, dx: { label: "DX", price: 30 } };
+
+  function basePrice(sizeKey) {
+    var row = buildObj().grid[sizeKey];
+    if (!row) return null;
+    var v = row[state.depthIdx];
+    return (v == null) ? null : v;
+  }
+
+  // Surcharges (from the supplier sheet). Circular is a Size, not an extra.
+  var EXTRAS = [
+    { id: "cornercut",   name: "Corner cut-off",                     price: 12, type: "qty", unit: "per corner", max: 8 },
+    { id: "roundcorner", name: "Round corner",                       price: 15, type: "qty", unit: "per corner", max: 8 },
+    { id: "threestep",   name: "3-step cut",                         price: 40, type: "qty", unit: "each", sub: "“words cannot explain”", max: 8 },
+    { id: "template",    name: "Cut to template",                    type: "choice",
+      options: [ { label: "Topper template — £30", price: 30 }, { label: "Mattress template — £50", price: 50 } ] },
+    { id: "bolster",     name: "Extra cover for bolster",            price: 20, type: "qty", unit: "each", max: 8 },
+    { id: "ziplink",     name: "Zip / fabric link",                  price: 30, type: "qty", unit: "each", max: 8 },
+    { id: "topper",      name: "Increase topper depth (+2.5cm max)", price: 10, type: "toggle" },
+    { id: "darkgrey",    name: "Dark-grey fabric",                   price: 15, type: "toggle", sub: "up to king size" },
+    { id: "chamfer",     name: "Chamfer cut",                        price: 25, type: "qty", unit: "per chamfer", sub: "boat mattresses etc.", max: 8 },
+    { id: "underside",   name: "Underside / undercut",               price: 40, type: "qty", unit: "per undercut", max: 8 },
+    { id: "circular",    name: "Circular mattress",                   price: 60, type: "toggle", sub: "pro-rata + £60" },
+    { id: "misc",        name: "Miscellaneous",                       type: "misc" }
+  ];
+
+  var state = { sku: "", buildId: "", size: "", depthIdx: null, extras: {}, carriage: "none", carriageAmt: "" };
+  var dirty = false; // unsaved changes since last Save/Clear
+  function markDirty() { dirty = true; var e = document.getElementById("clearErr"); if (e) e.hidden = true; }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var money = function (n) { return "£" + Number(n).toFixed(2); };
+  var sizeObj = function () { return SIZES.filter(function (s) { return s.key === state.size; })[0] || null; };
+  var skuObj = function () { return SKUS.filter(function (s) { return s.id === state.sku; })[0] || null; };
+  var buildObj = function () {
+    var s = skuObj(); if (!s) return null;
+    if (s.builds.length === 1) return s.builds[0];          // auto-resolved for single-build SKUs
+    return s.builds.filter(function (b) { return b.id === state.buildId; })[0] || null;
+  };
+  var depthLabel = function () { var b = buildObj(); return (b && state.depthIdx != null) ? b.depths[state.depthIdx] : ""; };
+  function selectionComplete() { return !!(state.sku && buildObj() && state.depthIdx != null && state.size); }
+
+  function refreshDepth() {
+    var sel = $("depth"), b = buildObj();
+    if (!b) {
+      sel.innerHTML = '<option value="" disabled selected hidden>Select depth…</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="" disabled selected hidden>Select depth…</option>';
+    b.depths.forEach(function (d, i) { var o = document.createElement("option"); o.value = String(i); o.textContent = d; sel.appendChild(o); });
+    sel.value = (state.depthIdx == null) ? "" : String(state.depthIdx);
+  }
+  function refreshBuild() {
+    var sku = skuObj(), sel = $("build"), pick = $("buildPick"), auto = $("buildAuto");
+    if (!sku) { pick.hidden = true; auto.hidden = true; sel.innerHTML = ""; refreshDepth(); return; }
+    if (sku.builds.length > 1) {
+      sel.innerHTML = '<option value="" disabled selected hidden>Select foam build…</option>';
+      sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.label; sel.appendChild(o); });
+      sel.value = state.buildId || "";
+      pick.hidden = false; auto.hidden = true;
+    } else {
+      pick.hidden = true; auto.hidden = false;
+      auto.innerHTML = 'Foam build set automatically: <b>' + sku.builds[0].label + '</b> <span class="hint">— the only build for this SKU</span>';
+    }
+    refreshDepth();
+  }
+  function buildControls() {
+    var sel = $("sku");
+    sel.innerHTML = '<option value="" disabled selected hidden>Select SKU…</option>';
+    SKUS.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
+    var sz = $("size");
+    sz.innerHTML = '<option value="" disabled selected hidden>Select size…</option>';
+    SIZES.forEach(function (s) { var o = document.createElement("option"); o.value = s.key; o.textContent = s.label; sz.appendChild(o); });
+    refreshBuild();
+
+    sel.addEventListener("change", function () { state.sku = this.value; state.buildId = ""; state.depthIdx = null; refreshBuild(); render(); });
+    $("build").addEventListener("change", function () { state.buildId = this.value; state.depthIdx = null; refreshDepth(); render(); });
+    $("depth").addEventListener("change", function () { state.depthIdx = this.value === "" ? null : parseInt(this.value, 10); render(); });
+    sz.addEventListener("change", function () { state.size = this.value; render(); });
+    $("carriage").addEventListener("change", function () { state.carriage = this.value; $("carriageManual").hidden = (this.value !== "manual"); render(); });
+    $("carriageAmt").addEventListener("input", function () { state.carriageAmt = this.value; render(); });
+  }
+  function buildSkuKey() {
+    $("skuKeyBody").innerHTML = SKUS.map(function (s) {
+      var builds = s.builds.map(function (b) { return esc(b.full); }).join('<br><span style="color:var(--muted)">or</span> ');
+      return '<tr><td><b>' + esc(s.name) + '</b></td><td>' + builds + '</td></tr>';
+    }).join("");
+  }
+
+  // --- order persistence (survives refresh) ---
+  var ORDER_KEY = "mp-extra-order-v1";
+  function loadOrder() { try { var s = localStorage.getItem(ORDER_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function saveOrder() {
+    try {
+      var ids = Array.prototype.slice.call($("extras").querySelectorAll(".ex")).map(function (r) { return r.dataset.id; });
+      localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+    } catch (e) {}
+  }
+  function orderedExtras() {
+    var order = loadOrder();
+    if (!order) return EXTRAS.slice();
+    var byId = {}; EXTRAS.forEach(function (e) { byId[e.id] = e; });
+    var out = [];
+    order.forEach(function (id) { if (byId[id]) { out.push(byId[id]); delete byId[id]; } });
+    EXTRAS.forEach(function (e) { if (byId[e.id]) out.push(e); }); // append any new/unsaved
+    return out;
+  }
+
+  function getDragAfter(box, y) {
+    var els = Array.prototype.slice.call(box.querySelectorAll(".ex:not(.dragging)"));
+    var closest = { offset: -Infinity, el: null };
+    els.forEach(function (child) {
+      var b = child.getBoundingClientRect();
+      var offset = y - b.top - b.height / 2;
+      if (offset < 0 && offset > closest.offset) closest = { offset: offset, el: child };
+    });
+    return closest.el;
+  }
+  function initDnD() {
+    var box = $("extras");
+    box.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      var dragging = box.querySelector(".dragging");
+      if (!dragging) return;
+      var after = getDragAfter(box, e.clientY);
+      if (after == null) box.appendChild(dragging);
+      else box.insertBefore(dragging, after);
+    });
+  }
+
+  function buildExtras() {
+    var box = $("extras");
+    orderedExtras().forEach(function (ex) {
+      // defaults: qty 0 (no charge), choice -1 (none), misc {desc,amt}, toggle false
+      state.extras[ex.id] = ex.type === "qty" ? 0 : ex.type === "choice" ? -1 : ex.type === "misc" ? { desc: "", amt: 0 } : false;
+
+      var row = document.createElement("div");
+      row.className = "ex" + (ex.type === "misc" ? " misc" : "");
+      row.dataset.id = ex.id;
+
+      var control, priceTxt;
+      if (ex.type === "misc") {
+        control = '<input type="text" class="misc-desc" placeholder="What is it?" aria-label="Miscellaneous description">' +
+                  '<input type="number" class="misc-amt num" step="0.01" min="0" inputmode="decimal" placeholder="£" aria-label="Miscellaneous amount">';
+        priceTxt = "";
+      } else if (ex.type === "qty") {
+        var mx = ex.max || 8, opts = "";
+        for (var i = 0; i <= mx; i++) opts += '<option value="' + i + '">' + i + '</option>';
+        control = '<select class="qty num" aria-label="' + ex.name + ' quantity">' + opts + '</select>';
+        priceTxt = money(ex.price) + " " + ex.unit;
+      } else if (ex.type === "choice") {
+        control = '<select class="choice" aria-label="' + ex.name + '"><option value="-1">None</option>' +
+          ex.options.map(function (o, idx) { return '<option value="' + idx + '">' + o.label + '</option>'; }).join("") + '</select>';
+        priceTxt = "";
+      } else {
+        control = '<input type="checkbox" class="tog" aria-label="' + ex.name + '">';
+        priceTxt = (ex.price == null) ? "By hand" : money(ex.price);
+      }
+
+      row.innerHTML =
+        '<span class="grip" draggable="true" title="Drag to reorder" aria-hidden="true">⠿</span>' +
+        '<span class="meta"><span class="name">' + ex.name + '</span>' +
+        (priceTxt ? '<span class="price num">' + priceTxt + '</span>' : '') +
+        (ex.sub ? '<span class="sub">' + ex.sub + '</span>' : '') + '</span>' +
+        '<span class="ctrl">' + control + '</span>';
+
+      var qtySel = row.querySelector('select.qty');
+      var choiceSel = row.querySelector('select.choice');
+      var tog = row.querySelector('input.tog');
+      var mDesc = row.querySelector('.misc-desc');
+      var mAmt = row.querySelector('.misc-amt');
+      var grip = row.querySelector('.grip');
+
+      grip.addEventListener("dragstart", function (e) {
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", ex.id); } catch (_) {}
+        try { e.dataTransfer.setDragImage(row, 24, 18); } catch (_) {}
+      });
+      grip.addEventListener("dragend", function () { row.classList.remove("dragging"); saveOrder(); });
+
+      function markActive() {
+        var on = (qtySel && +qtySel.value > 0) || (choiceSel && +choiceSel.value >= 0) || (tog && tog.checked) || (mAmt && parseFloat(mAmt.value) > 0);
+        row.classList.toggle("active", !!on);
+      }
+
+      if (qtySel) qtySel.addEventListener("change", function () { state.extras[ex.id] = parseInt(qtySel.value, 10); markActive(); render(); });
+      if (choiceSel) choiceSel.addEventListener("change", function () { state.extras[ex.id] = parseInt(choiceSel.value, 10); markActive(); render(); });
+      if (tog) tog.addEventListener("change", function () { state.extras[ex.id] = tog.checked; markActive(); render(); });
+      if (mDesc) mDesc.addEventListener("input", function () { state.extras[ex.id].desc = mDesc.value; render(); });
+      if (mAmt) mAmt.addEventListener("input", function () { state.extras[ex.id].amt = parseFloat(mAmt.value) || 0; markActive(); render(); });
+
+      box.appendChild(row);
+    });
+  }
+
+  function compute() {
+    if (!selectionComplete()) return { incomplete: true, lines: [], total: null, known: 0, poa: false };
+    var size = sizeObj();
+    var poa = !size.grid;
+    var base = poa ? null : basePrice(size.key);
+    var lines = [];
+
+    if (poa) {
+      lines.push({ base: true, poa: true, name: "Base — pro-rata (price on application)", val: null });
+      if (size.addCharge) lines.push({ name: size.addLabel, val: size.addCharge });
+    } else {
+      lines.push({ base: true, name: "Base — " + skuObj().name + " · " + buildObj().label, val: base });
+    }
+
+    var extrasSum = 0;
+    EXTRAS.forEach(function (ex) {
+      var v = state.extras[ex.id];
+      var amt, note;
+      if (ex.type === "qty") {
+        if (!v || v <= 0) return;
+        amt = ex.price * v; note = v + " × " + money(ex.price);
+      } else if (ex.type === "choice") {
+        if (v == null || v < 0) return;
+        var op = ex.options[v]; amt = op.price; note = op.label;
+      } else if (ex.type === "misc") {
+        var ma = (v && parseFloat(v.amt)) || 0;
+        if (ma <= 0) return;
+        amt = ma; note = (v.desc && v.desc.trim()) ? v.desc.trim() : null;
+      } else {
+        if (!v) return;
+        if (ex.price == null) { lines.push({ name: ex.name, note: "priced by hand", val: null }); return; }
+        amt = ex.price;
+      }
+      extrasSum += amt;
+      lines.push({ name: ex.name, note: note, val: amt });
+    });
+
+    // carriage
+    var carrAmt = 0;
+    if (state.carriage === "dpd" || state.carriage === "dx") {
+      carrAmt = CARRIAGE[state.carriage].price;
+      lines.push({ name: "Carriage — " + CARRIAGE[state.carriage].label, val: carrAmt });
+    } else if (state.carriage === "manual") {
+      var cm = parseFloat(state.carriageAmt) || 0;
+      if (cm > 0) { carrAmt = cm; lines.push({ name: "Carriage (manual)", val: cm }); }
+    }
+
+    var knownCharges = (poa ? (size.addCharge || 0) : 0) + extrasSum + carrAmt;
+    return { poa: poa, base: base, lines: lines, total: poa ? null : base + extrasSum + carrAmt, known: knownCharges };
+  }
+
+  function render() {
+    var r = compute();
+    var size = sizeObj();
+    $("sizeNote").innerHTML = !size ? "" : (size.poa ? size.note : 'Standard size — priced from the grid.');
+
+    if (r.incomplete) {
+      var parts = [], sk = skuObj(), b = buildObj();
+      if (sk) parts.push(sk.name + (b ? " · " + b.label : ""));
+      if (b && state.depthIdx != null) parts.push(depthLabel());
+      if (size) parts.push(size.label);
+      $("spec").innerHTML = '<span style="color:var(--muted)">' + (parts.length ? esc(parts.join(" · ")) : "Nothing selected yet") + '</span>';
+      $("lines").innerHTML = '<div class="empty">Choose a SKU, foam build, depth and size to see the price.</div>';
+      $("total").textContent = "—";
+      $("totalNote").textContent = "";
+      $("agreed").placeholder = "—";
+      $("mbarTotal").textContent = "—";
+      window.__lastQuote = null;
+      return;
+    }
+
+    $("spec").innerHTML = '<b>' + skuObj().name + ' · ' + buildObj().label + '</b><br>' + size.label + ' · ' + depthLabel();
+
+    $("lines").innerHTML = r.lines.map(function (ln) {
+      return '<div class="li' + (ln.base ? ' base' : '') + (ln.poa ? ' poa' : '') + '">' +
+        '<span class="lname">' + ln.name + (ln.note ? ' <small>(' + ln.note + ')</small>' : '') + '</span>' +
+        '<span class="lval num">' + (ln.val == null ? 'POA' : money(ln.val)) + '</span></div>';
+    }).join("");
+
+    if (r.poa) {
+      $("total").textContent = "POA";
+      $("totalNote").textContent = r.known > 0 ? "plus " + money(r.known) + " known charges (base priced by hand)" : "base priced by hand";
+    } else {
+      $("total").textContent = money(r.total);
+      $("totalNote").textContent = "";
+    }
+    window.__lastQuote = { size: size, sku: skuObj(), build: buildObj(), depth: depthLabel(), r: r };
+    $("agreed").placeholder = r.poa ? "POA — enter agreed price" : money(r.total);
+    $("mbarTotal").textContent = r.poa ? "POA" : money(r.total);
+  }
+
+  function copyQuote() {
+    var q = window.__lastQuote; if (!q) return;
+    var txt = "BESPOKE MATTRESS QUOTE\n" +
+      q.sku.name + " · " + q.build.label + "\n" + q.size.label + " · " + q.depth + "\n" +
+      "----------------------------------------\n";
+    q.r.lines.forEach(function (ln) {
+      txt += ln.name + (ln.note ? " (" + ln.note + ")" : "") + ": " + (ln.val == null ? "POA" : money(ln.val)) + "\n";
+    });
+    txt += "----------------------------------------\n";
+    txt += q.r.poa ? ("TOTAL: POA" + (q.r.known > 0 ? " + " + money(q.r.known) + " known charges" : "")) : ("TOTAL: " + money(q.r.total));
+    txt += "\n";
+    var btn = $("copyBtn");
+    navigator.clipboard.writeText(txt).then(function () {
+      var old = btn.textContent; btn.textContent = "Copied ✓";
+      setTimeout(function () { btn.textContent = old; }, 1400);
+    }).catch(function () { btn.textContent = "Copy failed"; });
+  }
+
+  // ---------- Invoiced Orders — Postgres API on Railway, with local fallback ----------
+  var QUOTES_KEY = "mp-quotes-v1";
+  var apiOn = false;      // set by initStore(): true when the database API answers
+  var ordersCache = [];   // last-loaded order list
+  function loadLocal() { try { var s = localStorage.getItem(QUOTES_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
+  function saveLocal(a) { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(a)); } catch (e) {} }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function flash(btn, msg) { var old = btn.dataset.label || btn.textContent; btn.dataset.label = old; btn.textContent = msg; setTimeout(function () { btn.textContent = old; }, 1500); }
+
+  function initStore() {
+    return fetch("/api/health", { cache: "no-store" })
+      .then(function (r) { apiOn = r.ok; })
+      .catch(function () { apiOn = false; })
+      .then(function () {
+        var n = document.getElementById("savedNote");
+        if (n) n.textContent = apiOn
+          ? "Stored in the database — every saved order is kept here and visible to anyone with the link."
+          : "Local demo storage — this copy isn't connected to the database (saves stay in this browser).";
+      });
+  }
+  function refreshOrders() {
+    var p = apiOn
+      ? fetch("/api/orders").then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+      : Promise.resolve(loadLocal());
+    return p.then(function (arr) { ordersCache = arr || []; renderSaved(); });
+  }
+  function carriageLabel() {
+    if (state.carriage === "dpd") return "DPD £15";
+    if (state.carriage === "dx") return "DX £30";
+    if (state.carriage === "manual") { var m = parseFloat(state.carriageAmt) || 0; return m > 0 ? "Manual £" + m.toFixed(2) : "Manual"; }
+    return "None";
+  }
+
+  function saveQuote() {
+    if (!window.__lastQuote) { flash($("saveBtn"), "Finish the quote first"); flash($("mbarSave"), "Finish quote"); return; }
+    var order = $("orderNo").value.trim();
+    if (!order) { $("orderNo").classList.add("err"); $("orderNo").scrollIntoView({ behavior: "smooth", block: "center" }); $("orderNo").focus(); flash($("saveBtn"), "Enter order # first"); flash($("mbarSave"), "Order # needed"); return; }
+    $("orderNo").classList.remove("err");
+    var q = window.__lastQuote;
+    var calc = q.r.poa ? null : q.r.total;
+    var av = $("agreed").value.trim();
+    var agreed = av === "" ? calc : parseFloat(av);
+    var rec = {
+      order: order,
+      ts: new Date().toISOString(),
+      model: q.sku.name + " · " + q.build.label, size: q.size.label, depth: q.depth,
+      carriage: carriageLabel(),
+      lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
+      calc: calc, agreed: (isNaN(agreed) ? null : agreed)
+    };
+    var save = apiOn
+      ? fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }).then(function (r) { if (!r.ok) throw 0; })
+      : (function () { var a = loadLocal(); a.unshift(rec); saveLocal(a); return Promise.resolve(); })();
+    save.then(function () {
+      dirty = false; $("clearErr").hidden = true;
+      flash($("saveBtn"), "Saved ✓"); flash($("mbarSave"), "Saved ✓");
+      return refreshOrders();
+    }).catch(function () {
+      flash($("saveBtn"), "Save failed — retry"); flash($("mbarSave"), "Save failed");
+    });
+  }
+
+  function clearForm() {
+    if (dirty && window.__lastQuote) {
+      $("clearErr").hidden = false;
+      var s = $("saveBtn"); s.classList.add("pulse"); setTimeout(function () { s.classList.remove("pulse"); }, 1500);
+      s.focus();
+      return;
+    }
+    $("clearErr").hidden = true;
+    $("orderNo").value = ""; $("orderNo").classList.remove("err");
+    $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
+    $("orderDiagram").hidden = true; $("orderDiagram").innerHTML = "";
+    $("agreed").value = "";
+    state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null;
+    $("sku").value = ""; refreshBuild(); $("size").value = "";
+    state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
+    Array.prototype.slice.call($("extras").querySelectorAll(".ex")).forEach(function (row) {
+      var id = row.dataset.id;
+      var qsel = row.querySelector("select.qty"), csel = row.querySelector("select.choice"), tog = row.querySelector("input.tog");
+      var mdesc = row.querySelector(".misc-desc"), mamt = row.querySelector(".misc-amt");
+      if (qsel) { qsel.value = "0"; state.extras[id] = 0; }
+      if (csel) { csel.value = "-1"; state.extras[id] = -1; }
+      if (tog) { tog.checked = false; state.extras[id] = false; }
+      if (mdesc || mamt) { if (mdesc) mdesc.value = ""; if (mamt) mamt.value = ""; state.extras[id] = { desc: "", amt: 0 }; }
+      row.classList.remove("active");
+    });
+    render();
+    $("orderNo").focus();
+  }
+
+  function renderSaved() {
+    var arr = ordersCache, card = $("savedCard");
+    if (!arr.length) { card.style.display = "none"; return; }
+    card.style.display = "";
+    $("savedCount").textContent = "(" + arr.length + ")";
+    $("savedBody").innerHTML = arr.map(function (r, i) {
+      var calc = r.calc == null ? "POA" : money(r.calc);
+      var agreed = r.agreed == null ? "—" : money(r.agreed);
+      var deltaCell = "—";
+      if (r.calc != null && r.agreed != null) {
+        var d = Number(r.agreed) - Number(r.calc), cls = d > 0 ? "pos" : (d < 0 ? "neg" : ""), sign = d > 0 ? "+" : "";
+        deltaCell = d === 0 ? money(0) : '<span class="delta ' + cls + '">' + sign + money(d) + '</span>';
+      }
+      var when = new Date(r.ts).toLocaleString();
+      var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
+      return '<tr>' +
+        '<td><b>' + esc(r.order) + '</b></td>' +
+        '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
+        '<td class="r">' + calc + '</td>' +
+        '<td class="r">' + agreed + '</td>' +
+        '<td class="r">' + deltaCell + '</td>' +
+        '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
+        '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
+        '</tr>';
+    }).join("");
+    Array.prototype.slice.call($("savedBody").querySelectorAll(".rowdel")).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = parseInt(b.dataset.i, 10), row = ordersCache[i];
+        if (apiOn && row && row.id != null) {
+          fetch("/api/orders/" + row.id, { method: "DELETE" }).then(refreshOrders).catch(function () {});
+        } else {
+          var a = loadLocal(); a.splice(i, 1); saveLocal(a); refreshOrders();
+        }
+      });
+    });
+  }
+
+  function exportCSV() {
+    var arr = ordersCache; if (!arr.length) return;
+    var rows = [["Order", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Agreed", "Difference", "Line items"]];
+    arr.forEach(function (r) {
+      var items = (r.lines || []).map(function (l) { return l.name + (l.note ? " (" + l.note + ")" : "") + " = " + (l.val == null ? "POA" : l.val); }).join(" | ");
+      rows.push([r.order, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
+        r.calc == null ? "POA" : r.calc, r.agreed == null ? "" : r.agreed,
+        (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", items]);
+    });
+    var csv = rows.map(function (row) { return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv" }), url = URL.createObjectURL(blob);
+    var a = document.createElement("a"); a.href = url; a.download = "invoiced-orders.csv"; a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function wipeSaved() {
+    if (apiOn) { window.alert("Orders are stored in the database — remove them one at a time with the ✕ button."); return; }
+    if (!window.confirm("Delete ALL saved orders from this browser?")) return;
+    saveLocal([]); refreshOrders();
+  }
+
+  // ---------- order lookup (autocomplete + auto-fill from the order app) ----------
+  var lookupEnabled = false;
+  var acTimer = null;
+
+  function initLookup() {
+    fetch("/api/order/enabled").then(function (r) { return r.ok ? r.json() : { enabled: false }; })
+      .then(function (j) { lookupEnabled = !!(j && j.enabled); })
+      .catch(function () { lookupEnabled = false; });
+  }
+
+  function sizeFromMeasurements(w, l) {
+    if (l != null && l > 200) return "oversized";
+    if (w == null) return null;
+    if (w <= 92) return "single";
+    if (w <= 137) return "double";
+    if (w <= 153) return "king";
+    if (w <= 183) return "sking";
+    return "oversized";
+  }
+
+  function renderAc(items) {
+    var ac = $("orderAc");
+    if (!items || !items.length) { ac.innerHTML = ""; ac.hidden = true; return; }
+    ac.innerHTML = items.map(function (n) { return '<div class="ac-item" data-n="' + esc(n) + '">' + esc(n) + '</div>'; }).join("");
+    ac.hidden = false;
+    Array.prototype.slice.call(ac.querySelectorAll(".ac-item")).forEach(function (el) {
+      el.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        $("orderNo").value = el.dataset.n;
+        ac.hidden = true;
+        doLookup(el.dataset.n);
+      });
+    });
+  }
+
+  function doLookup(orderNumber) {
+    var st = $("orderStatus");
+    st.className = "order-status"; st.textContent = "Looking up " + orderNumber + "…";
+    fetch("/api/order/lookup/" + encodeURIComponent(orderNumber))
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(applyOrder)
+      .catch(function () { st.className = "order-status err"; st.textContent = "Order " + orderNumber + " not found in the order app."; });
+  }
+
+  function applyOrder(d) {
+    if (!d) return;
+    if (d.orderNumber) { $("orderNo").value = d.orderNumber; $("orderNo").classList.remove("err"); }
+    var filled = [];
+    if (d.pricerSku) {
+      var m = SKUS.filter(function (s) { return s.name.toLowerCase() === String(d.pricerSku).toLowerCase(); })[0];
+      if (m) { state.sku = m.id; state.buildId = ""; state.depthIdx = null; $("sku").value = m.id; refreshBuild(); filled.push("SKU"); }
+    }
+    var sz = sizeFromMeasurements(d.widthA, d.lengthB);
+    if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
+    var dg = $("orderDiagram");
+    if (d.diagramUrl) { dg.innerHTML = '<img src="' + esc(d.diagramUrl) + '" alt="Order diagram" loading="lazy"><div class="cap">Order diagram — check the cuts before pricing</div>'; dg.hidden = false; }
+    else { dg.hidden = true; dg.innerHTML = ""; }
+    dirty = true;
+    render();
+    var st = $("orderStatus"); st.className = "order-status";
+    var dims = (d.widthA != null || d.lengthB != null) ? (" · A " + (d.widthA != null ? d.widthA : "?") + "cm, B " + (d.lengthB != null ? d.lengthB : "?") + "cm") : "";
+    st.innerHTML = filled.length
+      ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". Now set the build, depth and any extras."
+      : "Order found, but nothing auto-filled — enter the details manually.";
+  }
+
+  function initTheme() {
+    $("themeToggle").addEventListener("click", function () {
+      var cur = document.documentElement.getAttribute("data-theme");
+      var isDark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    });
+  }
+
+  buildControls();
+  buildSkuKey();
+  buildExtras();
+  initDnD();
+  initTheme();
+  $("copyBtn").addEventListener("click", copyQuote);
+  $("printBtn").addEventListener("click", function () { window.print(); });
+  $("saveBtn").addEventListener("click", saveQuote);
+  $("clearBtn").addEventListener("click", clearForm);
+  $("mbarSave").addEventListener("click", saveQuote);
+  $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
+  $("exportBtn").addEventListener("click", exportCSV);
+  $("wipeBtn").addEventListener("click", wipeSaved);
+  $("orderNo").addEventListener("input", function () { this.classList.remove("err"); });
+  $("orderNo").addEventListener("input", function () {
+    if (!lookupEnabled) return;
+    var q = this.value.trim();
+    clearTimeout(acTimer);
+    if (q.replace(/^#/, "").length < 3) { $("orderAc").hidden = true; return; }
+    acTimer = setTimeout(function () {
+      fetch("/api/order/search?q=" + encodeURIComponent(q)).then(function (r) { return r.ok ? r.json() : []; }).then(renderAc).catch(function () {});
+    }, 200);
+  });
+  $("orderNo").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); $("orderAc").hidden = true; if (lookupEnabled && this.value.trim()) doLookup(this.value.trim()); }
+  });
+  $("orderNo").addEventListener("blur", function () { setTimeout(function () { $("orderAc").hidden = true; }, 150); });
+  initLookup();
+  // any real user change to the form marks the quote unsaved (programmatic changes don't fire these)
+  var layoutEl = document.querySelector(".layout");
+  layoutEl.addEventListener("input", markDirty);
+  layoutEl.addEventListener("change", markDirty);
+  render();
+  initStore().then(refreshOrders);
+})();
+</script>
