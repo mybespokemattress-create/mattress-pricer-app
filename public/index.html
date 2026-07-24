@@ -190,6 +190,36 @@
   .order-diagram img { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; }
   .order-diagram .cap { font-size: 12px; color: var(--muted); margin-top: 5px; }
 
+  /* clickable saved rows */
+  .srow { cursor: pointer; }
+  .srow:hover td { background: var(--panel-2); }
+
+  /* summary: order line (screen+print) + print-only diagram */
+  .q-order { margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+  .q-order:empty { display: none; }
+  .q-diagram { display: none; }
+  .q-diagram img { display: block; max-width: 240px; margin: 12px 20px 0; border: 1px solid var(--line); border-radius: 8px; }
+
+  /* saved-order detail modal */
+  .modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 18px; }
+  .modal[hidden] { display: none; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(10,15,25,.55); }
+  .modal-card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 24px; }
+  .dm-close { position: absolute; top: 12px; right: 14px; border: 0; background: none; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; }
+  .dm-close:hover { color: var(--ink); }
+  .dm-order { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -.01em; padding-right: 28px; }
+  .dm-sub { font-size: 13.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .dm-img { margin: 16px 0 4px; }
+  .dm-img img { display: block; max-width: 260px; width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+  .dm-sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin: 18px 0 6px; }
+  .dm-line { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed var(--line); }
+  .dm-line:last-child { border-bottom: 0; }
+  .dm-line .n { color: var(--body); }
+  .dm-line .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dm-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
+  .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
+  .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); }
+
   /* agreed price override */
   .agreed { padding: 4px 20px 14px; }
   .agreed label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
@@ -262,10 +292,11 @@
 
   @media print {
     body { background: #fff; }
-    header.top .theme-btn, .config, .actions, .agreed, .demo-note, .guide, #savedCard, .mbar, footer.foot { display: none !important; }
+    header.top .theme-btn, .config, .actions, .agreed, .demo-note, .guide, #savedCard, .mbar, .modal, footer.foot { display: none !important; }
     .layout { display: block; }
     .summary { position: static; }
     .card { box-shadow: none; border-color: #ccc; }
+    .q-diagram { display: block !important; }
   }
 </style>
 
@@ -376,6 +407,7 @@
       <div class="head">
         <div class="k">Quote</div>
         <div class="spec" id="spec"></div>
+        <div class="q-order" id="qOrder"></div>
       </div>
       <div class="lines" id="lines"></div>
       <div class="total">
@@ -385,6 +417,7 @@
         </div>
         <div class="tnote" id="totalNote"></div>
       </div>
+      <div class="q-diagram" id="qDiagram"></div>
       <div class="agreed">
         <label for="agreed">Agreed price £ <span class="hint">override if the actual price differs</span></label>
         <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
@@ -407,7 +440,7 @@
     <div class="guide-grid">
       <div class="guide-item">
         <span class="gchip primary">Save Price</span>
-        <p><strong>Saves this order to the Invoiced Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and agreed price and the date — so any order can be checked back later.</p>
+        <p><strong>Saves this order to the Saved Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and agreed price and the date — so any order can be checked back later.</p>
       </div>
       <div class="guide-item">
         <span class="gchip">Clear</span>
@@ -426,7 +459,7 @@
 
   <div class="card" id="savedCard" style="display:none; margin-top:22px;">
     <div class="saved-head">
-      <h2>Invoiced Orders <span id="savedCount" style="color:var(--muted); font-weight:600;"></span></h2>
+      <h2>Saved Orders <span id="savedCount" style="color:var(--muted); font-weight:600;"></span></h2>
       <div class="saved-actions">
         <button class="btn ghost" id="exportBtn" type="button">Export CSV</button>
         <button class="btn ghost" id="wipeBtn" type="button">Clear all</button>
@@ -452,6 +485,11 @@
     <span class="mbar-total num" id="mbarTotal">£0.00</span>
   </button>
   <button class="btn primary mbar-save" id="mbarSave" type="button">Save</button>
+</div>
+
+<div class="modal" id="detailModal" hidden>
+  <div class="modal-backdrop" id="detailBackdrop"></div>
+  <div class="modal-card" id="detailCard"></div>
 </div>
 
 <script>
@@ -825,10 +863,11 @@
     }).catch(function () { btn.textContent = "Copy failed"; });
   }
 
-  // ---------- Invoiced Orders — Postgres API on Railway, with local fallback ----------
+  // ---------- Saved Orders — Postgres API on Railway, with local fallback ----------
   var QUOTES_KEY = "mp-quotes-v1";
   var apiOn = false;      // set by initStore(): true when the database API answers
   var ordersCache = [];   // last-loaded order list
+  var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   function loadLocal() { try { var s = localStorage.getItem(QUOTES_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
   function saveLocal(a) { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(a)); } catch (e) {} }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -873,7 +912,8 @@
       model: q.sku.name + " · " + q.build.label, size: q.size.label, depth: q.depth,
       carriage: carriageLabel(),
       lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
-      calc: calc, agreed: (isNaN(agreed) ? null : agreed)
+      calc: calc, agreed: (isNaN(agreed) ? null : agreed),
+      diagram: currentDiagram || null
     };
     var save = apiOn
       ? fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }).then(function (r) { if (!r.ok) throw 0; })
@@ -897,7 +937,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    $("orderDiagram").hidden = true; $("orderDiagram").innerHTML = "";
+    setDiagram(""); updateQuoteHeader();
     $("agreed").value = "";
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
@@ -931,7 +971,7 @@
       }
       var when = new Date(r.ts).toLocaleString();
       var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
-      return '<tr>' +
+      return '<tr class="srow" data-i="' + i + '" title="Click to view details">' +
         '<td><b>' + esc(r.order) + '</b></td>' +
         '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
         '<td class="r">' + calc + '</td>' +
@@ -942,7 +982,8 @@
         '</tr>';
     }).join("");
     Array.prototype.slice.call($("savedBody").querySelectorAll(".rowdel")).forEach(function (b) {
-      b.addEventListener("click", function () {
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
         var i = parseInt(b.dataset.i, 10), row = ordersCache[i];
         if (apiOn && row && row.id != null) {
           fetch("/api/orders/" + row.id, { method: "DELETE" }).then(refreshOrders).catch(function () {});
@@ -950,6 +991,9 @@
           var a = loadLocal(); a.splice(i, 1); saveLocal(a); refreshOrders();
         }
       });
+    });
+    Array.prototype.slice.call($("savedBody").querySelectorAll(".srow")).forEach(function (tr) {
+      tr.addEventListener("click", function () { openDetail(parseInt(tr.dataset.i, 10)); });
     });
   }
 
@@ -1028,9 +1072,8 @@
     }
     var sz = sizeFromMeasurements(d.widthA, d.lengthB);
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
-    var dg = $("orderDiagram");
-    if (d.diagramUrl) { dg.innerHTML = '<img src="' + esc(d.diagramUrl) + '" alt="Order diagram" loading="lazy"><div class="cap">Order diagram — check the cuts before pricing</div>'; dg.hidden = false; }
-    else { dg.hidden = true; dg.innerHTML = ""; }
+    setDiagram(d.diagramUrl || "");
+    updateQuoteHeader();
     dirty = true;
     render();
     var st = $("orderStatus"); st.className = "order-status";
@@ -1039,6 +1082,48 @@
       ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". Now set the build, depth and any extras."
       : "Order found, but nothing auto-filled — enter the details manually.";
   }
+
+  function setDiagram(url) {
+    currentDiagram = url || "";
+    var dg = $("orderDiagram");
+    if (url) { dg.innerHTML = '<img src="' + esc(url) + '" alt="Order diagram" loading="lazy"><div class="cap">Order diagram — check the cuts before pricing</div>'; dg.hidden = false; }
+    else { dg.hidden = true; dg.innerHTML = ""; }
+    $("qDiagram").innerHTML = url ? '<img src="' + esc(url) + '" alt="Order diagram">' : "";
+  }
+  function updateQuoteHeader() {
+    var o = $("orderNo").value.trim();
+    $("qOrder").textContent = o ? "Order " + o : "";
+  }
+
+  // saved-order detail card
+  function openDetail(i) {
+    var r = ordersCache[i]; if (!r) return;
+    var when = new Date(r.ts).toLocaleString();
+    var linesHtml = (r.lines || []).map(function (l) {
+      return '<div class="dm-line"><span class="n">' + esc(l.name) + (l.note ? ' <small style="color:var(--muted)">(' + esc(l.note) + ')</small>' : '') + '</span><span class="v">' + (l.val == null ? 'POA' : money(l.val)) + '</span></div>';
+    }).join("");
+    var calc = r.calc == null ? "POA" : money(r.calc);
+    var agreed = r.agreed == null ? "—" : money(r.agreed);
+    var deltaHtml = "";
+    if (r.calc != null && r.agreed != null) {
+      var d = Number(r.agreed) - Number(r.calc);
+      if (d !== 0) deltaHtml = '<div class="dm-line"><span class="n">Difference (agreed − calculated)</span><span class="v" style="color:' + (d > 0 ? '#c0392b' : 'var(--good)') + '">' + (d > 0 ? '+' : '') + money(d) + '</span></div>';
+    }
+    var img = r.diagram ? '<div class="dm-img"><img src="' + esc(r.diagram) + '" alt="Order diagram"></div>' : '';
+    $("detailCard").innerHTML =
+      '<button class="dm-close" id="dmClose" type="button" aria-label="Close">✕</button>' +
+      '<div class="dm-order">' + esc(r.order) + '</div>' +
+      '<div class="dm-sub">' + esc(r.model) + '<br>' + esc(r.size) + ' · ' + esc(r.depth) + ' · Carriage: ' + esc(r.carriage || "None") + '</div>' +
+      img +
+      '<div class="dm-sec-h">Price breakdown</div>' + linesHtml +
+      '<div class="dm-line"><span class="n">Calculated</span><span class="v">' + calc + '</span></div>' +
+      deltaHtml +
+      '<div class="dm-total"><span class="tl">Agreed price</span><span class="tv">' + agreed + '</span></div>' +
+      '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>';
+    $("detailModal").hidden = false;
+    $("dmClose").addEventListener("click", closeDetail);
+  }
+  function closeDetail() { $("detailModal").hidden = true; }
 
   function initTheme() {
     $("themeToggle").addEventListener("click", function () {
@@ -1061,7 +1146,9 @@
   $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("exportBtn").addEventListener("click", exportCSV);
   $("wipeBtn").addEventListener("click", wipeSaved);
-  $("orderNo").addEventListener("input", function () { this.classList.remove("err"); });
+  $("orderNo").addEventListener("input", function () { this.classList.remove("err"); updateQuoteHeader(); });
+  $("detailBackdrop").addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDetail(); });
   $("orderNo").addEventListener("input", function () {
     if (!lookupEnabled) return;
     var q = this.value.trim();

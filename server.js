@@ -40,6 +40,7 @@ async function initDb() {
       created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS diagram TEXT`);
   console.log("Database ready.");
 }
 
@@ -55,7 +56,7 @@ app.get("/api/orders", async (_req, res) => {
   if (!pool) return res.status(503).json([]);
   try {
     const { rows } = await pool.query(
-      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines
+      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram
          FROM orders ORDER BY created_at DESC LIMIT 2000`
     );
     res.json(rows);
@@ -69,11 +70,11 @@ app.post("/api/orders", async (req, res) => {
   if (!b.order) return res.status(400).json({ error: "order number required" });
   try {
     const { rows } = await pool.query(
-      `INSERT INTO orders (order_no, model, size, depth, calc, agreed, carriage, lines)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      `INSERT INTO orders (order_no, model, size, depth, calc, agreed, carriage, lines, diagram)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
       [b.order, b.model || null, b.size || null, b.depth || null,
        b.calc == null ? null : b.calc, b.agreed == null ? null : b.agreed,
-       b.carriage || null, JSON.stringify(b.lines || [])]
+       b.carriage || null, JSON.stringify(b.lines || []), b.diagram || null]
     );
     res.json({ ok: true, id: rows[0].id });
   } catch (e) { console.error(e); res.status(500).json({ error: "save failed" }); }
