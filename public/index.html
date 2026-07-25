@@ -144,7 +144,7 @@
   .summary { position: sticky; top: 18px; }
   .summary .head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
   .summary .head .k { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--accent-deep); font-weight: 700; }
-  .summary .spec { margin-top: 8px; font-size: 13.5px; color: var(--body); }
+  .summary .spec { margin-top: 5px; font-size: 13px; color: var(--body); }
   .summary .spec b { color: var(--ink); font-weight: 600; }
   .lines { padding: 8px 20px; max-height: 320px; overflow-y: auto; }
   .li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13.5px; border-bottom: 1px dashed var(--line); }
@@ -196,8 +196,8 @@
   .srow { cursor: pointer; }
   .srow:hover td { background: var(--panel-2); }
 
-  /* summary: order line (screen) */
-  .q-order { margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+  /* summary: order number leads the quote box (mirrors the form + print) */
+  .q-order { margin-top: 4px; font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
   .q-order:empty { display: none; }
 
   /* saved-order detail modal */
@@ -468,8 +468,8 @@
     <div class="card summary">
       <div class="head">
         <div class="k">Quote</div>
-        <div class="spec" id="spec"></div>
         <div class="q-order" id="qOrder"></div>
+        <div class="spec" id="spec"></div>
       </div>
       <div class="lines" id="lines"></div>
       <div class="total">
