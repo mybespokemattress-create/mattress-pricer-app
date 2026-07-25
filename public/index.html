@@ -580,6 +580,7 @@
   var DGRAND = ['6″+2″ (8″ / 20cm)', '8″+2″ (10″ / 25cm)'];
   var DBODYT = ['1″ (2.5cm)', '2″ (5cm)', '3″ (7.5cm)', '4″ (10cm)', '5″ (12.5cm)'];
   var DCOOLT = ['2″ (5cm)', '3″ (7.5cm)'];
+  var DNOVO  = ['6″ (15cm)', '8″ (20cm)', '10″ (25cm)'];
 
   // ---------- SKUs → foam build(s) → price grid (from the production schedule) ----------
   // grid[sizeKey] is an array aligned to that build's `depths`.
@@ -593,9 +594,9 @@
         king: [79,87,97,107,120,135,160], sking: [95,105,115,130,145,165,200] } }
     ]},
     { id: "novo", name: "Novo", builds: [
-      { id: "novo", label: "RF39/120 Peach", full: "33/175 Blue + 30/130 White + RF39/120 Peach", depths: DFULL, grid: {
-        single: [80,86,93,100,110,120,135], double: [92,100,110,120,130,145,165],
-        king: [99,107,117,127,140,155,180], sking: [115,125,135,150,165,185,220] } }
+      { id: "novo", label: "RF39/120 Peach", full: "33/175 Blue + 30/130 White + RF39/120 Peach", depths: DNOVO, grid: {
+        single: [110,120,135], double: [130,145,165],
+        king: [140,155,180], sking: [165,185,220] } }
     ]},
     { id: "body", name: "Body", builds: [
       { id: "body-1v40", label: "1″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 1″ Vasco 40", depths: D1TOP, grid: {
