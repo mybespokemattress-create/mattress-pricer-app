@@ -14,7 +14,15 @@ const { Pool } = require("pg");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+// Never let the browser serve a stale page — always revalidate the HTML so a refresh
+// picks up the latest version (assets keep their normal caching).
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders: function (res, filePath) {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  }
+}));
 
 const hasDb = !!process.env.DATABASE_URL;
 const pool = hasDb
