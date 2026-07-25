@@ -298,50 +298,61 @@
   /* ===== dedicated print document (built on demand, hidden on screen) ===== */
   #printDoc { display: none; }
   @media print {
-    @page { margin: 16mm; }
-    body { background: #fff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 15mm; }
+    body { background: #fff; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     /* print only the built document — hide the whole app (form, saved table, modal, mobile bar) */
     body > *:not(#printDoc) { display: none !important; }
     #printDoc {
-      display: block !important;
-      max-width: 100%; color: #111;
+      display: block !important; color: #111;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px; line-height: 1.45;
     }
 
     /* title bar */
-    .pd-head { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2.5px solid #111; padding-bottom: 9px; margin-bottom: 18px; }
-    .pd-title { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #444; }
-    .pd-date { font-size: 11.5px; color: #666; }
+    .pd-head { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid #111; padding-bottom: 9px; }
+    .pd-brand { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: #0c7c6f; }
+    .pd-date { font-size: 11px; color: #666; }
 
-    /* order number — top of the flow, most prominent */
-    .pd-order { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: #111; margin-bottom: 4px; }
-    .pd-spec { font-size: 15px; line-height: 1.5; color: #222; margin-bottom: 18px; }
-    .pd-spec b { color: #111; font-weight: 700; }
+    /* top block: order + spec on the left, diagram on the right (shares vertical space) */
+    .pd-body { margin-top: 15px; }
+    .pd-body.has-img { display: grid; grid-template-columns: 1fr 190px; gap: 26px; align-items: start; }
+    .pd-order { font-size: 23px; font-weight: 800; letter-spacing: -.02em; color: #111; margin: 0 0 2px; }
+
+    /* section headings */
+    .pd-sec { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: #0c7c6f; margin: 18px 0 8px; }
+    .pd-main .pd-sec { margin-top: 14px; }
+
+    /* specification: tidy label / value rows */
+    .pd-spec { font-size: 13px; }
+    .pd-srow { display: flex; padding: 2px 0; }
+    .pd-srow .k { flex: 0 0 74px; color: #666; }
+    .pd-srow .v { flex: 1 1 auto; color: #111; font-weight: 600; }
+
+    /* diagram (top-right) */
+    .pd-aside img { display: block; width: 100%; max-width: 190px; max-height: 210px; object-fit: contain; object-position: top right; border: 1px solid #ccc; border-radius: 4px; }
+    .pd-aside .cap { font-size: 10px; color: #888; margin-top: 5px; text-align: center; }
 
     /* line-item table */
-    table.pd-lines { width: 100%; border-collapse: collapse; font-size: 14px; }
-    table.pd-lines td { padding: 9px 2px; border-bottom: 1px solid #dcdcdc; vertical-align: top; }
-    table.pd-lines tr:first-child td { border-top: 1px solid #dcdcdc; }
-    table.pd-lines td.pd-r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: #111; }
-    table.pd-lines .pd-note { color: #666; font-size: 12.5px; }
-    table.pd-lines tr.pd-base td { font-weight: 700; color: #111; }
+    table.pd-lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.pd-lines thead th { text-align: left; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #999; padding: 0 2px 6px; border-bottom: 1.5px solid #bbb; }
+    table.pd-lines thead th.amt { text-align: right; }
+    table.pd-lines tbody td { padding: 5.5px 2px; border-bottom: 1px solid #eee; vertical-align: top; }
+    table.pd-lines tbody tr:last-child td { border-bottom: 0; }
+    table.pd-lines td.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    table.pd-lines .pd-note { color: #999; font-size: 11.5px; }
+    table.pd-lines tr.pd-base td.item { font-weight: 700; color: #111; }
 
     /* total + agreed */
-    .pd-total { display: flex; align-items: baseline; justify-content: space-between; border-top: 2.5px solid #111; margin-top: 2px; padding-top: 13px; page-break-inside: avoid; }
-    .pd-total .l { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #333; font-weight: 700; }
-    .pd-total .v { font-size: 27px; font-weight: 800; color: #111; }
-    .pd-agreed { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #111; }
-    .pd-agreed .l { font-weight: 600; }
-    .pd-agreed .v { font-weight: 700; font-variant-numeric: tabular-nums; }
-    .pd-note-total { margin-top: 6px; font-size: 12px; color: #666; text-align: right; }
-
-    /* diagram */
-    .pd-diagram { margin-top: 24px; page-break-inside: avoid; }
-    .pd-diagram img { max-width: 300px; max-height: 340px; border: 1px solid #999; border-radius: 4px; }
-    .pd-diagram .cap { font-size: 11px; color: #777; margin-top: 6px; }
+    .pd-total { display: flex; align-items: baseline; justify-content: space-between; border-top: 2px solid #111; padding-top: 11px; page-break-inside: avoid; }
+    .pd-total .tl { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #333; font-weight: 700; }
+    .pd-total .tv { font-size: 22px; font-weight: 800; color: #111; font-variant-numeric: tabular-nums; }
+    .pd-agreed { display: flex; align-items: baseline; justify-content: space-between; margin-top: 8px; font-size: 13px; }
+    .pd-agreed .al { color: #555; font-weight: 600; }
+    .pd-agreed .av { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .pd-note-total { margin-top: 5px; font-size: 11px; color: #777; text-align: right; }
 
     /* footer note */
-    .pd-foot { margin-top: 26px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10.5px; color: #666; }
+    .pd-foot { margin-top: 20px; padding-top: 9px; border-top: 1px solid #ddd; font-size: 10px; color: #888; }
   }
 </style>
 
@@ -1193,30 +1204,36 @@
     if (!d) return false;
     var linesHtml = (d.lines || []).map(function (l) {
       var isBase = /^base\b/i.test(l.name || "");
-      return '<tr' + (isBase ? ' class="pd-base"' : '') + '><td>' + esc(l.name) +
+      return '<tr' + (isBase ? ' class="pd-base"' : '') + '><td class="item">' + esc(l.name) +
         (l.note ? ' <span class="pd-note">(' + esc(l.note) + ')</span>' : '') + '</td>' +
-        '<td class="pd-r">' + (l.val == null ? 'POA' : money(l.val)) + '</td></tr>';
+        '<td class="amt">' + (l.val == null ? 'POA' : money(l.val)) + '</td></tr>';
     }).join("");
-    var specBits = [d.size, d.depth].filter(Boolean).join(" · ");
-    var spec = '<b>' + esc(d.model || "") + '</b>' + (specBits ? '<br>' + esc(specBits) : "");
+    var specRows = "";
+    if (d.size)  specRows += '<div class="pd-srow"><span class="k">Size</span><span class="v">' + esc(d.size) + '</span></div>';
+    if (d.depth) specRows += '<div class="pd-srow"><span class="k">Depth</span><span class="v">' + esc(d.depth) + '</span></div>';
     var totalTxt = d.calc == null ? 'POA' : money(d.calc);
     var totalNote = "";
     if (d.calc == null) totalNote = d.known > 0 ? 'plus ' + money(d.known) + ' known charges (base priced by hand)' : 'base priced by hand';
     var agreedHtml = "";
     if (d.agreed != null && d.agreed !== d.calc) {
-      agreedHtml = '<div class="pd-agreed"><span class="l">Agreed price</span><span class="v">' + money(d.agreed) + '</span></div>';
+      agreedHtml = '<div class="pd-agreed"><span class="al">Agreed price</span><span class="av">' + money(d.agreed) + '</span></div>';
     }
-    var imgHtml = d.diagram ? '<div class="pd-diagram"><img src="' + esc(d.diagram) + '" alt="Order diagram"><div class="cap">Order shape diagram</div></div>' : '';
+    var aside = d.diagram ? '<div class="pd-aside"><img src="' + esc(d.diagram) + '" alt="Order diagram"><div class="cap">Shape diagram</div></div>' : '';
     var date = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
     $("printDoc").innerHTML =
-      '<div class="pd-head"><span class="pd-title">Price Quote</span><span class="pd-date">' + esc(date) + '</span></div>' +
-      (d.order ? '<div class="pd-order">Order ' + esc(d.order) + '</div>' : '') +
-      '<div class="pd-spec">' + spec + '</div>' +
-      '<table class="pd-lines"><tbody>' + linesHtml + '</tbody></table>' +
-      '<div class="pd-total"><span class="l">Total</span><span class="v">' + totalTxt + '</span></div>' +
+      '<div class="pd-head"><span class="pd-brand">Price Quote</span><span class="pd-date">' + esc(date) + '</span></div>' +
+      '<div class="pd-body' + (d.diagram ? ' has-img' : '') + '">' +
+        '<div class="pd-main">' +
+          (d.order ? '<div class="pd-order">Order ' + esc(d.order) + '</div>' : '') +
+          (specRows ? '<div class="pd-sec">Specification</div><div class="pd-spec">' + specRows + '</div>' : '') +
+        '</div>' +
+        aside +
+      '</div>' +
+      '<div class="pd-sec">Price breakdown</div>' +
+      '<table class="pd-lines"><thead><tr><th class="item">Item</th><th class="amt">Amount</th></tr></thead><tbody>' + linesHtml + '</tbody></table>' +
+      '<div class="pd-total"><span class="tl">Total</span><span class="tv">' + totalTxt + '</span></div>' +
       (totalNote ? '<div class="pd-note-total">' + esc(totalNote) + '</div>' : '') +
       agreedHtml +
-      imgHtml +
       '<div class="pd-foot">Prices shown in GBP. Generated by the Bespoke Mattress Price Calculator.</div>';
     return true;
   }
