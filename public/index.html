@@ -477,14 +477,14 @@
         <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
       </div>
       <div class="actions two">
-        <button class="btn primary" id="saveBtn" type="button">Save Price</button>
+        <button class="btn primary" id="saveBtn" type="button">Save Order</button>
         <button class="btn ghost" id="clearBtn" type="button">Clear</button>
       </div>
       <div class="actions two">
         <button class="btn ghost" id="copyBtn" type="button">Copy</button>
         <button class="btn ghost" id="printBtn" type="button">Print</button>
       </div>
-      <div class="clear-err" id="clearErr" hidden>⚠ Please <b>Save</b> this quote before clearing.</div>
+      <div class="clear-err" id="clearErr" hidden>⚠ Please <b>Save</b> this order before clearing.</div>
     </div>
   </div>
 
@@ -493,12 +493,12 @@
     <p class="lead">Enter the <b>Order number</b>, pick the <b>SKU</b> (the SKU Key in step 1 helps if it isn't on the paperwork), choose the <b>foam build</b> if the SKU offers two, then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
     <div class="guide-grid">
       <div class="guide-item">
-        <span class="gchip primary">Save Price</span>
+        <span class="gchip primary">Save Order</span>
         <p><strong>Saves this order to the Saved Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and agreed price and the date — so any order can be checked back later.</p>
       </div>
       <div class="guide-item">
         <span class="gchip">Clear</span>
-        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current quote first: Clear is blocked and shows a warning until the quote is saved. It never deletes anything already saved.</p>
+        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current order first: Clear is blocked and shows a warning until the order is saved. It never deletes anything already saved.</p>
       </div>
       <div class="guide-item">
         <span class="gchip">Copy</span>
@@ -955,7 +955,7 @@
   }
 
   function saveQuote() {
-    if (!window.__lastQuote) { flash($("saveBtn"), "Finish the quote first"); flash($("mbarSave"), "Finish quote"); return; }
+    if (!window.__lastQuote) { flash($("saveBtn"), "Complete the order first"); flash($("mbarSave"), "Complete order"); return; }
     var order = $("orderNo").value.trim();
     if (!order) { $("orderNo").classList.add("err"); $("orderNo").scrollIntoView({ behavior: "smooth", block: "center" }); $("orderNo").focus(); flash($("saveBtn"), "Enter order # first"); flash($("mbarSave"), "Order # needed"); return; }
     $("orderNo").classList.remove("err");
