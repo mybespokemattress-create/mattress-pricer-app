@@ -926,15 +926,22 @@
 
   function copyQuote() {
     var q = window.__lastQuote; if (!q) return;
-    var txt = "BESPOKE MATTRESS QUOTE\n" +
-      q.sku.name + " · " + q.build.label + "\n" + q.size.label + " · " + q.depth + "\n" +
-      "----------------------------------------\n";
+    var order = $("orderNo").value.trim();
+    var sep = "----------------------------------------";
+    var out = ["QUOTE"];
+    if (order) out.push("Order " + order);
+    out.push(q.sku.name + " · " + q.build.label);
+    out.push(sep);
     q.r.lines.forEach(function (ln) {
-      txt += ln.name + (ln.note ? " (" + ln.note + ")" : "") + ": " + (ln.val == null ? "POA" : money(ln.val)) + "\n";
+      var name = ln.name + (ln.note ? " (" + ln.note + ")" : "");
+      if (ln.base) name += " (" + q.size.label + " · " + q.depth + ")";  // size·depth sits with the base line
+      out.push(name + ": " + (ln.val == null ? "POA" : money(ln.val)));
     });
-    txt += "----------------------------------------\n";
-    txt += q.r.poa ? ("TOTAL: POA" + (q.r.known > 0 ? " + " + money(q.r.known) + " known charges" : "")) : ("TOTAL: " + money(q.r.total));
-    txt += "\n";
+    out.push(sep);
+    out.push("CALCULATED: " + (q.r.poa ? ("POA" + (q.r.known > 0 ? " + " + money(q.r.known) + " known charges" : "")) : money(q.r.total)));
+    var av = $("agreed").value.trim();
+    if (av !== "") { var a = parseFloat(av); if (!isNaN(a) && (q.r.poa || a !== q.r.total)) out.push("AGREED: " + money(a)); }
+    var txt = out.join("\n") + "\n";
     var btn = $("copyBtn");
     navigator.clipboard.writeText(txt).then(function () {
       var old = btn.textContent; btn.textContent = "Copied ✓";
