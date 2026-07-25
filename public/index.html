@@ -210,13 +210,13 @@
   .dm-img { margin: 16px 0 4px; }
   .dm-img img { display: block; max-width: 260px; width: 100%; border: 1px solid var(--line); border-radius: 10px; }
   .dm-sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin: 18px 0 6px; }
-  .dm-line { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed var(--line); }
+  .dm-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed var(--line); }
   .dm-line:last-child { border-bottom: 0; }
-  .dm-line .n { color: var(--body); }
-  .dm-line .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .dm-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
-  .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; }
-  .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); }
+  .dm-line .n { color: var(--body); flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .dm-line .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; text-align: right; }
+  .dm-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
+  .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; flex: 1 1 auto; min-width: 0; }
+  .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); flex: 0 0 auto; white-space: nowrap; }
   .dm-spec { margin-top: 12px; }
   .dm-actions { margin-top: 20px; display: flex; gap: 10px; }
   .dm-actions .btn { flex: 0 0 auto; padding: 10px 18px; font-size: 13px; }
@@ -287,6 +287,10 @@
     .ex .choice { max-width: 132px; }
     .ex .price { font-size: 12px; }
     .guide-grid { gap: 12px; }
+    .modal { padding: 10px; }
+    .modal-card { padding: 18px 16px; }
+    .dm-order { font-size: 18px; }
+    .dm-total .tv { font-size: 20px; }
   }
 
   footer.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--muted); }
