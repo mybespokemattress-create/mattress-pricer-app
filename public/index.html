@@ -211,7 +211,7 @@
   .dm-img img { display: block; max-width: 260px; width: 100%; border: 1px solid var(--line); border-radius: 10px; }
   .dm-sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin: 18px 0 6px; }
   .dm-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed var(--line); }
-  .dm-line:last-child { border-bottom: 0; }
+  .dm-line:last-child, .dm-line:has(+ .dm-total) { border-bottom: 0; }
   .dm-line .n { color: var(--body); flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
   .dm-line .v { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto; text-align: right; }
   .dm-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
