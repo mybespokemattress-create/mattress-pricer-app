@@ -460,7 +460,7 @@
         </label>
         <label class="fld" id="carriageManual" hidden>
           <span class="lab">Carriage price £</span>
-          <input type="number" id="carriageAmt" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="£">
+          <input type="number" id="carriageAmt" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="£" autocomplete="off">
         </label>
       </div>
     </div>
@@ -707,8 +707,15 @@
     $("build").addEventListener("change", function () { state.buildId = this.value; state.depthIdx = null; refreshDepth(); render(); });
     $("depth").addEventListener("change", function () { state.depthIdx = this.value === "" ? null : parseInt(this.value, 10); render(); });
     sz.addEventListener("change", function () { state.size = this.value; render(); });
-    $("carriage").addEventListener("change", function () { state.carriage = this.value; $("carriageManual").hidden = (this.value !== "manual"); render(); });
+    $("carriage").addEventListener("change", function () {
+      state.carriage = this.value;
+      $("carriageManual").hidden = (this.value !== "manual");
+      // pick up any value already sitting in the box (e.g. browser-restored after a refresh)
+      if (this.value === "manual") state.carriageAmt = $("carriageAmt").value;
+      render();
+    });
     $("carriageAmt").addEventListener("input", function () { state.carriageAmt = this.value; render(); });
+    $("carriageAmt").addEventListener("change", function () { state.carriageAmt = this.value; render(); });
   }
   function buildSkuKey() {
     $("skuKeyBody").innerHTML = SKUS.map(function (s) {
