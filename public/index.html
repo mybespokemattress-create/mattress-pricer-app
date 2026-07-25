@@ -143,15 +143,16 @@
   /* summary */
   .summary { position: sticky; top: 18px; }
   .summary .head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
-  .summary .head .k { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--accent-deep); font-weight: 700; }
-  .summary .spec { margin-top: 5px; font-size: 13px; color: var(--body); }
+  .summary .head .k { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent-deep); font-weight: 700; }
+  .summary .spec { margin-top: 4px; font-size: 13.5px; color: var(--ink); }
   .summary .spec b { color: var(--ink); font-weight: 600; }
   .lines { padding: 8px 20px; max-height: 320px; overflow-y: auto; }
-  .li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13.5px; border-bottom: 1px dashed var(--line); }
+  .li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; font-size: 13px; border-bottom: 1px dashed var(--line); }
   .li:last-child { border-bottom: 0; }
-  .li .lname { color: var(--body); }
-  .li .lname small { color: var(--muted); }
-  .li .lval { color: var(--ink); font-weight: 600; }
+  .li .lname { color: var(--body); min-width: 0; }
+  .li .lname small { color: var(--muted); font-weight: 400; }
+  .li .lname .li-sub { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .li .lval { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; flex: 0 0 auto; white-space: nowrap; }
   .li.base .lname { font-weight: 600; color: var(--ink); }
   .li.poa .lval { color: var(--accent-deep); }
   .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
@@ -197,7 +198,7 @@
   .srow:hover td { background: var(--panel-2); }
 
   /* summary: order number leads the quote box (mirrors the form + print) */
-  .q-order { margin-top: 4px; font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+  .q-order { margin-top: 3px; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
   .q-order:empty { display: none; }
 
   /* saved-order detail modal */
@@ -894,11 +895,12 @@
       return;
     }
 
-    $("spec").innerHTML = '<b>' + skuObj().name + ' · ' + buildObj().label + '</b><br>' + size.label + ' · ' + depthLabel();
+    $("spec").innerHTML = '<b>' + esc(skuObj().name + ' · ' + buildObj().label) + '</b>';
 
     $("lines").innerHTML = r.lines.map(function (ln) {
+      var sub = ln.base ? '<span class="li-sub">' + esc(size.label + ' · ' + depthLabel()) + '</span>' : '';
       return '<div class="li' + (ln.base ? ' base' : '') + (ln.poa ? ' poa' : '') + '">' +
-        '<span class="lname">' + ln.name + (ln.note ? ' <small>(' + ln.note + ')</small>' : '') + '</span>' +
+        '<span class="lname">' + esc(ln.name) + (ln.note ? ' <small>(' + esc(ln.note) + ')</small>' : '') + sub + '</span>' +
         '<span class="lval num">' + (ln.val == null ? 'POA' : money(ln.val)) + '</span></div>';
     }).join("");
 
