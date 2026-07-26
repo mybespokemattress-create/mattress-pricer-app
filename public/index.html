@@ -55,6 +55,7 @@
   .brand .mark { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(150deg, var(--accent), var(--accent-deep)); display: grid; place-items: center; color: #fff; flex: 0 0 auto; }
   h1 { margin: 0; font-size: 19px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
   .brand p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+  .supplier-badge { display: inline-block; margin: 5px 0 1px; padding: 3px 11px; border-radius: 999px; background: var(--accent-deep); color: #fff; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 
   .theme-btn { border: 1px solid var(--line-strong); background: var(--panel); color: var(--body); border-radius: 9px; padding: 8px 12px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
   .theme-btn:hover { border-color: var(--accent); color: var(--ink); }
@@ -382,6 +383,7 @@
       </span>
       <div>
         <h1>Bespoke Mattress Price Calculator</h1>
+        <span class="supplier-badge" id="supplierBadge" hidden></span>
         <p>Foam build &times; size &times; depth, plus finishing surcharges</p>
       </div>
     </div>
@@ -1282,6 +1284,14 @@
     });
   }
 
+  // supplier name badge + browser-tab title, so you can tell which calculator you're in at a glance
+  if (CATALOG.name) {
+    var sb = $("supplierBadge");
+    sb.textContent = CATALOG.name;
+    if (CATALOG.badge) sb.style.background = CATALOG.badge;
+    sb.hidden = false;
+    document.title = CATALOG.name + " — Mattress Price Calculator";
+  }
   buildControls();
   buildSkuKey();
   buildExtras();

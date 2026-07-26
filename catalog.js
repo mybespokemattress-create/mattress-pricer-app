@@ -107,14 +107,14 @@ const MATTRESSSHIRE_EXTRAS = [
   { id: "misc",         name: "Miscellaneous",                     type: "misc" }
 ];
 
-const SOUTHERN      = { key: "southern",      name: "Southern Production",     skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS };
-const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS };
+const SOUTHERN      = { key: "southern",      name: "Southern Production",     badge: "#0c7c6f", skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS };
+const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", badge: "#7c3aed", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS };
 
 module.exports = {
   southern:      SOUTHERN,
   mattressshire: MATTRESSSHIRE,
   // internal combined view (for your own double-checking only — don't share this URL with suppliers)
-  combined:      { key: "combined", name: "All suppliers", multi: true,
+  combined:      { key: "combined", name: "All suppliers", multi: true, badge: "#334155",
                    suppliers: [SOUTHERN, MATTRESSSHIRE],
                    skus: SOUTHERN_SKUS.concat(MATTRESSSHIRE_SKUS),
                    extras: SOUTHERN_EXTRAS }
