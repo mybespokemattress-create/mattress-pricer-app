@@ -628,8 +628,15 @@
     }
     sel.innerHTML = '<option value="" disabled selected hidden>Select depth…</option>';
     b.depths.forEach(function (d, i) { var o = document.createElement("option"); o.value = String(i); o.textContent = d; sel.appendChild(o); });
-    // only one depth (e.g. Imperial) → auto-select it, nothing to choose
-    if (b.depths.length === 1 && state.depthIdx == null) state.depthIdx = 0;
+    // auto-select the depth: one option (e.g. Imperial), or an exact match to the supplier-code depth
+    if (state.depthIdx == null) {
+      if (b.depths.length === 1) state.depthIdx = 0;
+      else if (codeDepthInches != null) {
+        var hits = [];
+        b.depths.forEach(function (lbl, i) { if (depthTotalInches(lbl) === codeDepthInches) hits.push(i); });
+        if (hits.length === 1) state.depthIdx = hits[0];  // only auto-fill on a single exact match
+      }
+    }
     sel.value = (state.depthIdx == null) ? "" : String(state.depthIdx);
   }
   function refreshBuild() {
@@ -915,6 +922,7 @@
   var apiOn = false;      // set by initStore(): true when the database API answers
   var ordersCache = [];   // last-loaded order list
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
+  var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   function loadLocal() { try { var s = localStorage.getItem(QUOTES_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
   function saveLocal(a) { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(a)); } catch (e) {} }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -984,7 +992,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); setOrderLink(""); setSupplierCode(""); updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); setSupplierCode(""); codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
@@ -1112,11 +1120,12 @@
 
   function applyOrder(d) {
     if (!d) return;
+    codeDepthInches = deriveDepthInches(d.supplierCode); // set before refreshBuild so refreshDepth can use it
     if (d.orderNumber) { $("orderNo").value = d.orderNumber; $("orderNo").classList.remove("err"); }
     var filled = [];
     if (d.pricerSku) {
       var m = SKUS.filter(function (s) { return s.name.toLowerCase() === String(d.pricerSku).toLowerCase(); })[0];
-      if (m) { state.sku = m.id; state.buildId = ""; state.depthIdx = null; $("sku").value = m.id; refreshBuild(); filled.push("SKU"); }
+      if (m) { state.sku = m.id; state.buildId = ""; state.depthIdx = null; $("sku").value = m.id; refreshBuild(); filled.push("SKU"); if (state.depthIdx != null) filled.push("depth"); }
     }
     var sz = sizeFromMeasurements(d.widthA, d.lengthB);
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
@@ -1144,6 +1153,22 @@
     if (val && String(val).trim()) { el.innerHTML = '<span class="ol-lab">Link / join</span><b>' + esc(val) + '</b>'; el.hidden = false; }
     else { el.hidden = true; el.innerHTML = ""; }
   }
+  // Sum the foam-layer thicknesses in a supplier code (straight-quote inches) → total depth in inches.
+  function deriveDepthInches(code) {
+    if (!code) return null;
+    var m = String(code).match(/(\d+(?:\.\d+)?)\s*"/g);
+    if (!m || !m.length) return null;
+    var sum = m.reduce(function (a, s) { return a + parseFloat(s); }, 0);
+    return sum > 0 ? sum : null;
+  }
+  // Finished depth in inches for a depth label (parenthesised total for layered builds, else the leading value).
+  function depthTotalInches(label) {
+    var m = String(label).match(/\((\d+(?:\.\d+)?)\s*″/);      // e.g. "7″+1″ (8″ / 20cm)" → 8
+    if (m) return parseFloat(m[1]);
+    m = String(label).match(/^\s*(\d+(?:\.\d+)?)\s*″/);         // e.g. "6″ (15cm)" → 6
+    return m ? parseFloat(m[1]) : null;
+  }
+
   // Show the supplier code for SKUs flagged showCode (e.g. Imperial), highlighting the watch-word
   // (e.g. "tufting") so the operator can decide whether to apply that charge.
   function setSupplierCode(code, watch) {
