@@ -100,11 +100,10 @@ const MATTRESSSHIRE_EXTRAS = [
   { id: "cuts",         name: "Cuts",                              type: "steps", sub: "priced by number of cuts",
     prices: [0, 20, 30, 40, 50, 60, 70, 80, 90, 100] },
   { id: "bolstertopbot",name: "Bolster — fabric top & bottom",     price: 25,   type: "qty", unit: "per bolster", max: 8 },
-  { id: "extracover2pc",name: "Extra cover (2-piece mattress)",    price: 20,   type: "qty", unit: "each", max: 8 },
-  { id: "fabriclink",   name: "Fabric link",                       price: 35,   type: "qty", unit: "each", max: 8 },
-  { id: "ziplink",      name: "Zip & link",                        price: 45,   type: "qty", unit: "each", max: 8 },
   { id: "tufting",      name: "Tufting",                           price: 12.5, type: "qty", unit: "each", max: 8 },
-  { id: "bolstermatch", name: "Bolster — matching fabric top & bottom", price: 5, type: "qty", unit: "per bolster", max: 8 },
+  { id: "ziplink",      name: "Zip & link",                        price: 45,   type: "qty", unit: "each", max: 8 },
+  { id: "fabriclink",   name: "Fabric link",                       price: 35,   type: "qty", unit: "each", max: 8 },
+  { id: "extracover2pc",name: "Extra cover (2-piece mattress)",    price: 20,   type: "qty", unit: "each", max: 8 },
   { id: "misc",         name: "Miscellaneous",                     type: "misc" }
 ];
 
