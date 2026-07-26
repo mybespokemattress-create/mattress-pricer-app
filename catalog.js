@@ -61,11 +61,55 @@ const SOUTHERN_SKUS = [
   ]}
 ];
 
-// ---- Mattressshire Production — TODO: populate from their price sheets (same structure) ----
-const MATTRESSSHIRE_SKUS = [];
+// ---- Mattressshire Production (from Mattressshire's price sheets) ----
+const M_6810 = ['6″ (15cm)', '8″ (20cm)', '10″ (25cm)'];
+const M_10   = ['10″ (25cm)'];
+const MATTRESSSHIRE_SKUS = [
+  { id: "comfi", name: "Comfi", builds: [
+    { id: "comfi", label: "Blue & White Foam", full: "Blue & White Foam", depths: M_6810, grid: {
+      single: [100,112,130], double: [124,142,166],
+      king: [136,154,184], sking: [190,214,250] } }
+  ]},
+  { id: "imperial", name: "Imperial", builds: [
+    { id: "imperial", label: "2000 Pocket Memory + Gel", full: "2000 Pocket Memory + Gel", depths: M_10, grid: {
+      single: [235], double: [260], king: [285], sking: [410] } }
+  ]}
+];
 
-const SOUTHERN      = { key: "southern",      name: "Southern Production",     skus: SOUTHERN_SKUS };
-const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", skus: MATTRESSSHIRE_SKUS };
+// ---- Add-ons / surcharges (per supplier) ----
+// types: "qty" (price × quantity), "steps" (price looked up by quantity from prices[]),
+//        "choice" (pick one option), "toggle" (on/off), "misc" (free description + amount)
+const SOUTHERN_EXTRAS = [
+  { id: "cornercut",   name: "Corner cut-off",                     price: 12, type: "qty", unit: "per corner", max: 8 },
+  { id: "roundcorner", name: "Round corner",                       price: 15, type: "qty", unit: "per corner", max: 8 },
+  { id: "threestep",   name: "3-step cut",                         price: 40, type: "qty", unit: "each", sub: "“words cannot explain”", max: 8 },
+  { id: "template",    name: "Cut to template",                    type: "choice",
+    options: [ { label: "Topper template — £30", price: 30 }, { label: "Mattress template — £50", price: 50 } ] },
+  { id: "bolster",     name: "Extra cover for bolster",            price: 20, type: "qty", unit: "each", max: 8 },
+  { id: "ziplink",     name: "Zip / fabric link",                  price: 30, type: "qty", unit: "each", max: 8 },
+  { id: "topper",      name: "Increase topper depth (+2.5cm max)", price: 10, type: "toggle" },
+  { id: "darkgrey",    name: "Dark-grey fabric",                   price: 15, type: "toggle", sub: "up to king size" },
+  { id: "chamfer",     name: "Chamfer cut",                        price: 25, type: "qty", unit: "per chamfer", sub: "boat mattresses etc.", max: 8 },
+  { id: "underside",   name: "Underside / undercut",               price: 40, type: "qty", unit: "per undercut", max: 8 },
+  { id: "circular",    name: "Circular mattress",                   price: 60, type: "toggle", sub: "pro-rata + £60" },
+  { id: "misc",        name: "Miscellaneous",                       type: "misc" }
+];
+
+const MATTRESSSHIRE_EXTRAS = [
+  // Cuts are priced by the NUMBER of cuts (prices[qty]) — index 0 = none.
+  { id: "cuts",         name: "Cuts",                              type: "steps", sub: "priced by number of cuts",
+    prices: [0, 20, 30, 40, 50, 60, 70, 80, 90, 100] },
+  { id: "bolstertopbot",name: "Bolster — fabric top & bottom",     price: 25,   type: "qty", unit: "per bolster", max: 8 },
+  { id: "extracover2pc",name: "Extra cover (2-piece mattress)",    price: 20,   type: "qty", unit: "each", max: 8 },
+  { id: "fabriclink",   name: "Fabric link",                       price: 35,   type: "qty", unit: "each", max: 8 },
+  { id: "ziplink",      name: "Zip & link",                        price: 45,   type: "qty", unit: "each", max: 8 },
+  { id: "tufting",      name: "Tufting",                           price: 12.5, type: "qty", unit: "each", max: 8 },
+  { id: "bolstermatch", name: "Bolster — matching fabric top & bottom", price: 5, type: "qty", unit: "per bolster", max: 8 },
+  { id: "misc",         name: "Miscellaneous",                     type: "misc" }
+];
+
+const SOUTHERN      = { key: "southern",      name: "Southern Production",     skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS };
+const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS };
 
 module.exports = {
   southern:      SOUTHERN,
@@ -73,5 +117,6 @@ module.exports = {
   // internal combined view (for your own double-checking only — don't share this URL with suppliers)
   combined:      { key: "combined", name: "All suppliers", multi: true,
                    suppliers: [SOUTHERN, MATTRESSSHIRE],
-                   skus: SOUTHERN_SKUS.concat(MATTRESSSHIRE_SKUS) }
+                   skus: SOUTHERN_SKUS.concat(MATTRESSSHIRE_SKUS),
+                   extras: SOUTHERN_EXTRAS }
 };

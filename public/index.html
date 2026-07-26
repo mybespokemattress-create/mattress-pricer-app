@@ -590,22 +590,8 @@
     return (v == null) ? null : v;
   }
 
-  // Surcharges (from the supplier sheet). Circular is a Size, not an extra.
-  var EXTRAS = [
-    { id: "cornercut",   name: "Corner cut-off",                     price: 12, type: "qty", unit: "per corner", max: 8 },
-    { id: "roundcorner", name: "Round corner",                       price: 15, type: "qty", unit: "per corner", max: 8 },
-    { id: "threestep",   name: "3-step cut",                         price: 40, type: "qty", unit: "each", sub: "“words cannot explain”", max: 8 },
-    { id: "template",    name: "Cut to template",                    type: "choice",
-      options: [ { label: "Topper template — £30", price: 30 }, { label: "Mattress template — £50", price: 50 } ] },
-    { id: "bolster",     name: "Extra cover for bolster",            price: 20, type: "qty", unit: "each", max: 8 },
-    { id: "ziplink",     name: "Zip / fabric link",                  price: 30, type: "qty", unit: "each", max: 8 },
-    { id: "topper",      name: "Increase topper depth (+2.5cm max)", price: 10, type: "toggle" },
-    { id: "darkgrey",    name: "Dark-grey fabric",                   price: 15, type: "toggle", sub: "up to king size" },
-    { id: "chamfer",     name: "Chamfer cut",                        price: 25, type: "qty", unit: "per chamfer", sub: "boat mattresses etc.", max: 8 },
-    { id: "underside",   name: "Underside / undercut",               price: 40, type: "qty", unit: "per undercut", max: 8 },
-    { id: "circular",    name: "Circular mattress",                   price: 60, type: "toggle", sub: "pro-rata + £60" },
-    { id: "misc",        name: "Miscellaneous",                       type: "misc" }
-  ];
+  // Surcharges / add-ons — injected per-supplier by the server (see catalog.js).
+  var EXTRAS = CATALOG.extras || [];
 
   var state = { sku: "", buildId: "", size: "", depthIdx: null, extras: {}, carriage: "none", carriageAmt: "" };
   var dirty = false; // unsaved changes since last Save/Clear
@@ -721,8 +707,8 @@
   function buildExtras() {
     var box = $("extras");
     orderedExtras().forEach(function (ex) {
-      // defaults: qty 0 (no charge), choice -1 (none), misc {desc,amt}, toggle false
-      state.extras[ex.id] = ex.type === "qty" ? 0 : ex.type === "choice" ? -1 : ex.type === "misc" ? { desc: "", amt: 0 } : false;
+      // defaults: qty/steps 0 (no charge), choice -1 (none), misc {desc,amt}, toggle false
+      state.extras[ex.id] = (ex.type === "qty" || ex.type === "steps") ? 0 : ex.type === "choice" ? -1 : ex.type === "misc" ? { desc: "", amt: 0 } : false;
 
       var row = document.createElement("div");
       row.className = "ex" + (ex.type === "misc" ? " misc" : "");
@@ -738,6 +724,13 @@
         for (var i = 0; i <= mx; i++) opts += '<option value="' + i + '">' + i + '</option>';
         control = '<select class="qty num" aria-label="' + ex.name + ' quantity">' + opts + '</select>';
         priceTxt = money(ex.price) + " " + ex.unit;
+      } else if (ex.type === "steps") {
+        var sp = ex.prices || [], sopts = "";
+        for (var si = 0; si < sp.length; si++) {
+          sopts += '<option value="' + si + '">' + (si === 0 ? '0' : si + (si === 1 ? ' cut' : ' cuts') + ' — ' + money(sp[si])) + '</option>';
+        }
+        control = '<select class="qty num" aria-label="' + ex.name + '">' + sopts + '</select>';
+        priceTxt = "";
       } else if (ex.type === "choice") {
         control = '<select class="choice" aria-label="' + ex.name + '"><option value="-1">None</option>' +
           ex.options.map(function (o, idx) { return '<option value="' + idx + '">' + o.label + '</option>'; }).join("") + '</select>';
@@ -805,6 +798,9 @@
       if (ex.type === "qty") {
         if (!v || v <= 0) return;
         amt = ex.price * v; note = v + " × " + money(ex.price);
+      } else if (ex.type === "steps") {
+        if (!v || v <= 0) return;
+        amt = (ex.prices && ex.prices[v]) || 0; note = v + (v === 1 ? " cut" : " cuts");
       } else if (ex.type === "choice") {
         if (v == null || v < 0) return;
         var op = ex.options[v]; amt = op.price; note = op.label;
