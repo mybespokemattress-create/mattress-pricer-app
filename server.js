@@ -10,13 +10,39 @@
  */
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const { Pool } = require("pg");
+const catalog = require("./catalog");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
-// Never let the browser serve a stale page — always revalidate the HTML so a refresh
-// picks up the latest version (assets keep their normal caching).
+
+// ---- Per-supplier page: inject ONLY this deployment's supplier catalogue into the HTML ----
+// SUPPLIER env picks which one (default "southern"). The browser therefore never receives
+// another supplier's prices — true separation, no login needed.
+const SUPPLIER = (process.env.SUPPLIER || "southern").toLowerCase();
+const INDEX_PATH = path.join(__dirname, "public", "index.html");
+let RENDERED_INDEX = null;
+function getIndexHtml() {
+  if (RENDERED_INDEX) return RENDERED_INDEX;
+  const cat = catalog[SUPPLIER] || catalog.southern;
+  const raw = fs.readFileSync(INDEX_PATH, "utf8");
+  const json = JSON.stringify(cat).replace(/</g, "\\u003c"); // guard against </script>
+  const inject = "<script>window.__CATALOG__=" + json + ";</script>\n";
+  // inject before the FIRST <script> (the app script) — robust to line endings
+  if (raw.indexOf("<script>") === -1) throw new Error("index.html has no <script> to inject before");
+  RENDERED_INDEX = raw.replace("<script>", inject + "<script>");
+  console.log("Serving catalogue for supplier: " + (cat && cat.key) + " (" + ((cat && cat.skus) || []).length + " SKUs)");
+  return RENDERED_INDEX;
+}
+app.get(["/", "/index.html"], function (_req, res) {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.type("html").send(getIndexHtml());
+});
+
+// static assets only (index.html is served above with the catalogue injected)
 app.use(express.static(path.join(__dirname, "public"), {
+  index: false,
   setHeaders: function (res, filePath) {
     if (filePath.endsWith(".html")) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
