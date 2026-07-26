@@ -70,7 +70,7 @@ const MATTRESSSHIRE_SKUS = [
       single: [100,112,130], double: [124,142,166],
       king: [136,154,184], sking: [190,214,250] } }
   ]},
-  { id: "imperial", name: "Imperial", builds: [
+  { id: "imperial", name: "Imperial", showCode: true, codeWatch: "tufting", builds: [
     { id: "imperial", label: "2000 Pocket Memory + Gel", full: "2000 Pocket Memory + Gel", depths: M_10, grid: {
       single: [235], double: [260], king: [285], sking: [410] } }
   ]}
