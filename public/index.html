@@ -192,6 +192,9 @@
   .order-status { margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--accent-deep); }
   .order-status.err { color: #b02a1f; }
   .order-status:empty { display: none; }
+  .order-link { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-wash); font-size: 14px; color: var(--ink); }
+  .order-link .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin-bottom: 2px; }
+  .order-link b { font-weight: 700; }
   .order-diagram { margin-top: 12px; }
   .order-diagram img { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; }
   .order-diagram .cap { font-size: 12px; color: var(--muted); margin-top: 5px; }
@@ -445,6 +448,7 @@
 
       <div class="sec">
         <h2><span class="step">4</span> Finishing &amp; extras</h2>
+        <div class="order-link" id="orderLink" hidden></div>
         <div class="order-diagram" id="orderDiagram" hidden></div>
         <p class="sechint">Drag <span class="g">⠿</span> to reorder — put your most-used at the top. The order is remembered.</p>
         <div class="extras" id="extras"></div>
@@ -975,7 +979,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); updateQuoteHeader();
     $("agreed").value = "";
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
@@ -1112,6 +1116,7 @@
     var sz = sizeFromMeasurements(d.widthA, d.lengthB);
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
     setDiagram(d.diagramUrl || "");
+    setOrderLink(d.linkAttachment || "");
     updateQuoteHeader();
     dirty = true;
     render();
@@ -1127,6 +1132,11 @@
     var dg = $("orderDiagram");
     if (url) { dg.innerHTML = '<img src="' + esc(url) + '" alt="Order diagram" loading="lazy"><div class="cap">Order diagram — check the cuts before pricing</div>'; dg.hidden = false; }
     else { dg.hidden = true; dg.innerHTML = ""; }
+  }
+  function setOrderLink(val) {
+    var el = $("orderLink");
+    if (val && String(val).trim()) { el.innerHTML = '<span class="ol-lab">Link / join</span><b>' + esc(val) + '</b>'; el.hidden = false; }
+    else { el.hidden = true; el.innerHTML = ""; }
   }
   function updateQuoteHeader() {
     var o = $("orderNo").value.trim();
