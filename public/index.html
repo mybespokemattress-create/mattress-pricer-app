@@ -172,6 +172,8 @@
   .actions.two .btn { flex: 1; }
   .clear-err { margin: 2px 20px 16px; padding: 10px 12px; border-radius: 8px; background: #fdecea; color: #b02a1f; border: 1px solid #f3c0bb; font-size: 12.5px; font-weight: 600; }
   .clear-err b { font-weight: 800; }
+  .clear-err .linklike { background: none; border: 0; padding: 0; margin: 0; font: inherit; font-weight: 800; color: #b02a1f; text-decoration: underline; cursor: pointer; }
+  .clear-err .linklike:hover { color: #8f1f16; }
   @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(18,165,148,.55); } 100% { box-shadow: 0 0 0 9px rgba(18,165,148,0); } }
   .btn.pulse { animation: pulseRing .7s ease-out 2; }
   @media (prefers-reduced-motion: reduce) { .btn.pulse { animation: none; } }
@@ -493,7 +495,7 @@
         <button class="btn ghost" id="copyBtn" type="button">Copy</button>
         <button class="btn ghost" id="printBtn" type="button">Print</button>
       </div>
-      <div class="clear-err" id="clearErr" hidden>⚠ Please <b>Save</b> this order before clearing.</div>
+      <div class="clear-err" id="clearErr" hidden>⚠ <b>Save</b> this order first — or <button type="button" id="discardBtn" class="linklike">discard it</button> to clear without saving.</div>
     </div>
   </div>
 
@@ -507,7 +509,7 @@
       </div>
       <div class="guide-item">
         <span class="gchip">Clear</span>
-        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current order first: Clear is blocked and shows a warning until the order is saved. It never deletes anything already saved.</p>
+        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current order first: Clear is blocked and shows a warning until the order is saved — or, if the entry is wrong, use <strong>discard it</strong> in that warning to clear without saving. It never deletes anything already saved.</p>
       </div>
       <div class="guide-item">
         <span class="gchip">Copy</span>
@@ -617,6 +619,8 @@
     }
     sel.innerHTML = '<option value="" disabled selected hidden>Select depth…</option>';
     b.depths.forEach(function (d, i) { var o = document.createElement("option"); o.value = String(i); o.textContent = d; sel.appendChild(o); });
+    // only one depth (e.g. Imperial) → auto-select it, nothing to choose
+    if (b.depths.length === 1 && state.depthIdx == null) state.depthIdx = 0;
     sel.value = (state.depthIdx == null) ? "" : String(state.depthIdx);
   }
   function refreshBuild() {
@@ -1235,6 +1239,7 @@
   });
   $("saveBtn").addEventListener("click", saveQuote);
   $("clearBtn").addEventListener("click", clearForm);
+  $("discardBtn").addEventListener("click", function () { dirty = false; clearForm(); }); // clear without saving
   $("mbarSave").addEventListener("click", saveQuote);
   $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("exportBtn").addEventListener("click", exportCSV);
