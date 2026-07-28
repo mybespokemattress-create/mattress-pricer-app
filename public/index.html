@@ -650,8 +650,8 @@
       sel.value = state.buildId || "";
       pick.hidden = false; auto.hidden = true;
     } else {
-      pick.hidden = true; auto.hidden = false;
-      auto.innerHTML = 'Foam build: <b>' + esc(sku.builds[0].full) + '</b> <span class="hint">— the only build for this recipe</span>';
+      // single build → nothing to choose; the recipe is already in the SKU dropdown + Supplier Code, so no redundant notice
+      pick.hidden = true; auto.hidden = true; auto.innerHTML = "";
     }
     refreshDepth();
   }
