@@ -196,8 +196,8 @@
   .order-link { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-wash); font-size: 14px; color: var(--ink); }
   .order-link .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin-bottom: 2px; }
   .order-link b { font-weight: 700; }
-  .order-code { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line-strong); border-left: 3px solid #d98a00; border-radius: 8px; background: #fff8ec; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
-  .order-code .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: #a56800; font-weight: 700; margin-bottom: 3px; }
+  .order-code { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong); border-radius: 8px; background: var(--panel-2); font-size: 12.5px; line-height: 1.5; color: var(--body); }
+  .order-code .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
   .order-code mark { background: #ffe08a; color: #6b4a00; font-weight: 800; padding: 0 2px; border-radius: 3px; }
   .order-code .oc-flag { margin-top: 6px; font-weight: 700; color: #a03c00; }
   .order-diagram { margin-top: 12px; }
@@ -1133,7 +1133,7 @@
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
     setDiagram(d.diagramUrl || "");
     setOrderLink(d.linkAttachment || "");
-    setSupplierCode((m && m.showCode) ? (d.supplierCode || "") : "", m && m.codeWatch);
+    setSupplierCode(d.supplierCode || "", m && m.codeWatch);  // always show the code (bespoke builds need checking); watch-word only where set (Imperial → tufting)
     updateQuoteHeader();
     dirty = true;
     render();
