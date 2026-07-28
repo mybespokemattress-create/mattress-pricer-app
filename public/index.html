@@ -648,12 +648,12 @@
   }
   function buildControls() {
     var sel = $("sku");
-    sel.innerHTML = '<option value="" disabled selected hidden>Select SKU…</option>';
+    sel.innerHTML = '<option value="" disabled selected hidden>Select foam recipe…</option>';
     SKUS.forEach(function (s) {
       var o = document.createElement("option"); o.value = s.id;
-      // lead with the foam recipe (what the operator recognises); SKU name rides along as reference
+      // lead with the foam recipe (what the operator recognises); SKU name in brackets so it reads as a separate label, not part of the recipe
       var recipe = (s.builds.length === 1) ? s.builds[0].full : s.builds.map(function (b) { return b.label; }).join(" / ");
-      o.textContent = recipe + "  ·  " + s.name;
+      o.textContent = recipe + "  (" + s.name + ")";
       sel.appendChild(o);
     });
     var sz = $("size");
