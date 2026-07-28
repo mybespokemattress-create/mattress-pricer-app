@@ -646,19 +646,25 @@
     if (!sku) { pick.hidden = true; auto.hidden = true; sel.innerHTML = ""; refreshDepth(); return; }
     if (sku.builds.length > 1) {
       sel.innerHTML = '<option value="" disabled selected hidden>Select foam build…</option>';
-      sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.label; sel.appendChild(o); });
+      sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.full; sel.appendChild(o); });
       sel.value = state.buildId || "";
       pick.hidden = false; auto.hidden = true;
     } else {
       pick.hidden = true; auto.hidden = false;
-      auto.innerHTML = 'Foam build set automatically: <b>' + sku.builds[0].label + '</b> <span class="hint">— the only build for this SKU</span>';
+      auto.innerHTML = 'Foam build: <b>' + esc(sku.builds[0].full) + '</b> <span class="hint">— the only build for this recipe</span>';
     }
     refreshDepth();
   }
   function buildControls() {
     var sel = $("sku");
     sel.innerHTML = '<option value="" disabled selected hidden>Select SKU…</option>';
-    SKUS.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
+    SKUS.forEach(function (s) {
+      var o = document.createElement("option"); o.value = s.id;
+      // lead with the foam recipe (what the operator recognises); SKU name rides along as reference
+      var recipe = (s.builds.length === 1) ? s.builds[0].full : s.builds.map(function (b) { return b.label; }).join(" / ");
+      o.textContent = recipe + "  ·  " + s.name;
+      sel.appendChild(o);
+    });
     var sz = $("size");
     sz.innerHTML = '<option value="" disabled selected hidden>Select size…</option>';
     SIZES.forEach(function (s) { var o = document.createElement("option"); o.value = s.key; o.textContent = s.label; sz.appendChild(o); });
