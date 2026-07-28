@@ -77,7 +77,7 @@
   table.skukey-t tr:last-child td { border-bottom: 0; }
   table.skukey-t td b { color: var(--ink); }
 
-  /* auto-set foam build notice */
+  /* auto-set foam recipe notice */
   .autobuild { font-size: 13px; color: var(--body); background: var(--accent-wash); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
   .autobuild b { color: var(--ink); }
   .autobuild .hint { color: var(--muted); font-weight: 400; }
@@ -384,7 +384,7 @@
       <div>
         <h1>Bespoke Mattress Price Calculator</h1>
         <span class="supplier-badge" id="supplierBadge" hidden></span>
-        <p>Foam build &times; size &times; depth, plus finishing surcharges</p>
+        <p>Foam recipe &times; size &times; depth, plus finishing surcharges</p>
       </div>
     </div>
     <button class="theme-btn" id="themeToggle" type="button" aria-label="Toggle light/dark">
@@ -421,7 +421,7 @@
           <summary>SKU Key — not sure which SKU? Tap to look it up</summary>
           <div class="skukey-body">
             <table class="skukey-t">
-              <thead><tr><th>SKU</th><th>Foam build(s)</th></tr></thead>
+              <thead><tr><th>SKU</th><th>Foam recipe(s)</th></tr></thead>
               <tbody id="skuKeyBody"></tbody>
             </table>
           </div>
@@ -429,10 +429,10 @@
       </div>
 
       <div class="sec">
-        <h2><span class="step">2</span> Foam build &amp; depth</h2>
+        <h2><span class="step">2</span> Foam recipe &amp; depth</h2>
         <div id="buildPick" hidden>
           <label class="fld">
-            <span class="lab">Foam build <span class="hint">(this SKU has two — choose one)</span></span>
+            <span class="lab">Foam recipe <span class="hint">(this SKU has two — choose one)</span></span>
             <div class="select-wrap"><select id="build"></select></div>
           </label>
         </div>
@@ -512,7 +512,7 @@
 
   <div class="card guide">
     <h2>How to use this tool</h2>
-    <p class="lead">Enter the <b>Order number</b>, pick the <b>SKU</b> (the SKU Key in step 1 helps if it isn't on the paperwork), choose the <b>foam build</b> if the SKU offers two, then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
+    <p class="lead">Enter the <b>Order number</b>, pick the <b>SKU</b> (the SKU Key in step 1 helps if it isn't on the paperwork), choose the <b>foam recipe</b> if the SKU offers two, then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
     <div class="guide-grid">
       <div class="guide-item">
         <span class="gchip primary">Save Order</span>
@@ -645,7 +645,7 @@
     var sku = skuObj(), sel = $("build"), pick = $("buildPick"), auto = $("buildAuto");
     if (!sku) { pick.hidden = true; auto.hidden = true; sel.innerHTML = ""; refreshDepth(); return; }
     if (sku.builds.length > 1) {
-      sel.innerHTML = '<option value="" disabled selected hidden>Select foam build…</option>';
+      sel.innerHTML = '<option value="" disabled selected hidden>Select foam recipe…</option>';
       sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.full; sel.appendChild(o); });
       sel.value = state.buildId || "";
       pick.hidden = false; auto.hidden = true;
@@ -870,7 +870,7 @@
       if (b && state.depthIdx != null) parts.push(depthLabel());
       if (size) parts.push(size.label);
       $("spec").innerHTML = '<span style="color:var(--muted)">' + (parts.length ? esc(parts.join(" · ")) : "Nothing selected yet") + '</span>';
-      $("lines").innerHTML = '<div class="empty">Choose a SKU, foam build, depth and size to see the price.</div>';
+      $("lines").innerHTML = '<div class="empty">Choose a SKU, foam recipe, depth and size to see the price.</div>';
       $("total").textContent = "—";
       $("totalNote").textContent = "";
       $("agreed").placeholder = "—";
