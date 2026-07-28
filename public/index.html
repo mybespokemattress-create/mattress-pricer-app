@@ -393,7 +393,7 @@
   </header>
 
   <div class="demo-note">
-    <strong>Prices from your production schedule.</strong> Pick the <b>SKU</b> and the tool narrows everything else down to avoid input error. Working version for review.
+    <strong>Prices from your production schedule.</strong> Pick the <b>foam recipe</b> and the tool narrows everything else down to avoid input error. Working version for review.
   </div>
 
   <div class="layout">
@@ -412,31 +412,22 @@
       </div>
 
       <div class="sec">
-        <h2><span class="step">1</span> SKU</h2>
+        <h2><span class="step">1</span> Foam recipe</h2>
         <label class="fld">
-          <span class="lab">SKU <span class="hint">(from the order — use the SKU Key below if unsure)</span></span>
+          <span class="lab">Foam recipe <span class="hint">(from the order)</span></span>
           <div class="select-wrap"><select id="sku"></select></div>
         </label>
-        <details class="skukey">
-          <summary>SKU Key — not sure which SKU? Tap to look it up</summary>
-          <div class="skukey-body">
-            <table class="skukey-t">
-              <thead><tr><th>SKU</th><th>Foam recipe(s)</th></tr></thead>
-              <tbody id="skuKeyBody"></tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-
-      <div class="sec">
-        <h2><span class="step">2</span> Foam recipe &amp; depth</h2>
         <div id="buildPick" hidden>
-          <label class="fld">
-            <span class="lab">Foam recipe <span class="hint">(this SKU has two — choose one)</span></span>
+          <label class="fld" style="margin-top:14px;">
+            <span class="lab">Exact recipe <span class="hint">(this one comes in two — pick the one on the order)</span></span>
             <div class="select-wrap"><select id="build"></select></div>
           </label>
         </div>
         <div class="autobuild" id="buildAuto" hidden></div>
+      </div>
+
+      <div class="sec">
+        <h2><span class="step">2</span> Supplier code &amp; depth</h2>
         <div class="order-code" id="orderCode" hidden></div>
         <label class="fld" style="margin-top:14px;">
           <span class="lab">Depth</span>
@@ -512,7 +503,7 @@
 
   <div class="card guide">
     <h2>How to use this tool</h2>
-    <p class="lead">Enter the <b>Order number</b>, pick the <b>SKU</b> (the SKU Key in step 1 helps if it isn't on the paperwork), choose the <b>foam recipe</b> if the SKU offers two, then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
+    <p class="lead">Enter the <b>Order number</b>, pick the <b>foam recipe</b> (choose the exact one if it comes in two), then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
     <div class="guide-grid">
       <div class="guide-item">
         <span class="gchip primary">Save Order</span>
@@ -870,7 +861,7 @@
       if (b && state.depthIdx != null) parts.push(depthLabel());
       if (size) parts.push(size.label);
       $("spec").innerHTML = '<span style="color:var(--muted)">' + (parts.length ? esc(parts.join(" · ")) : "Nothing selected yet") + '</span>';
-      $("lines").innerHTML = '<div class="empty">Choose a SKU, foam recipe, depth and size to see the price.</div>';
+      $("lines").innerHTML = '<div class="empty">Choose a foam recipe, depth and size to see the price.</div>';
       $("total").textContent = "—";
       $("totalNote").textContent = "";
       $("agreed").placeholder = "—";
@@ -1299,7 +1290,6 @@
     document.title = CATALOG.name + " — Mattress Price Calculator";
   }
   buildControls();
-  buildSkuKey();
   buildExtras();
   initDnD();
   initTheme();
