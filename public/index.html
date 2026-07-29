@@ -14,6 +14,7 @@
     --accent: #12a594;
     --accent-deep: #0c7c6f;
     --accent-wash: #e7f5f2;
+    --good: #1a874e;
     --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07);
     --radius: 14px;
     color-scheme: light;
@@ -24,18 +25,19 @@
       --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
       --line: #26303f; --line-strong: #33404f;
       --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f;
+      --good: #34d399;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
       color-scheme: dark;
     }
   }
   :root[data-theme="light"] {
     --bg: #eef2f5; --panel: #ffffff; --panel-2: #f6f9fb; --ink: #14163d; --body: #3a3f52; --muted: #6b7280;
-    --line: #e2e8ee; --line-strong: #cdd7e0; --accent: #12a594; --accent-deep: #0c7c6f; --accent-wash: #e7f5f2;
+    --line: #e2e8ee; --line-strong: #cdd7e0; --accent: #12a594; --accent-deep: #0c7c6f; --accent-wash: #e7f5f2; --good: #1a874e;
     --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07); color-scheme: light;
   }
   :root[data-theme="dark"] {
     --bg: #0e1320; --panel: #161d2b; --panel-2: #1b2434; --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
-    --line: #26303f; --line-strong: #33404f; --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f;
+    --line: #26303f; --line-strong: #33404f; --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f; --good: #34d399;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
   }
 
@@ -236,10 +238,14 @@
   .dm-actions { margin-top: 20px; display: flex; gap: 10px; }
   .dm-actions .btn { flex: 0 0 auto; padding: 10px 18px; font-size: 13px; }
 
-  /* agreed price override */
+  /* invoiced price override + invoice number */
   .agreed { padding: 4px 20px 14px; }
   .agreed label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .agreed label.agreed-l2 { margin-top: 12px; }
   .agreed .hint { font-weight: 400; color: var(--muted); font-size: 12px; }
+  /* saved-log invoiced-price match/mismatch flag */
+  .pmatch { color: var(--good); font-weight: 700; }
+  .pmiss  { color: #c0392b; font-weight: 700; }
 
   /* saved quotes */
   .saved-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 20px 4px; }
@@ -487,8 +493,10 @@
         <div class="tnote" id="totalNote"></div>
       </div>
       <div class="agreed">
-        <label for="agreed">Agreed price £ <span class="hint">override if the actual price differs</span></label>
+        <label for="agreed">Invoiced Price £ <span class="hint">override if the actual price differs</span></label>
         <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
+        <label for="invoiceNo" class="agreed-l2">Invoice number <span class="hint">optional — shown in the log</span></label>
+        <input type="text" id="invoiceNo" class="txtin" placeholder="e.g. INV-1234" autocomplete="off">
       </div>
       <div class="actions two">
         <button class="btn primary" id="saveBtn" type="button">Save Order</button>
@@ -504,11 +512,11 @@
 
   <div class="card guide">
     <h2>How to use this tool</h2>
-    <p class="lead">Enter the <b>Order number</b>, pick the <b>foam recipe</b> (choose the exact one if it comes in two), then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Override the <b>Agreed price</b> if the actual figure differs, then use the buttons below the price:</p>
+    <p class="lead">Enter the <b>Order number</b>, pick the <b>foam recipe</b> (choose the exact one if it comes in two), then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Enter the <b>Invoiced Price</b> (and optional <b>Invoice number</b>) if the actual figure differs, then use the buttons below the price:</p>
     <div class="guide-grid">
       <div class="guide-item">
         <span class="gchip primary">Save Order</span>
-        <p><strong>Saves this order to the Saved Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and agreed price and the date — so any order can be checked back later.</p>
+        <p><strong>Saves this order to the Saved Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and invoiced price, the invoice number and the date — so any order can be checked back later.</p>
       </div>
       <div class="guide-item">
         <span class="gchip">Clear</span>
@@ -537,7 +545,7 @@
     <div class="tablewrap">
       <table class="saved-t">
         <thead><tr>
-          <th>Order</th><th>Item</th><th class="r">Calculated</th><th class="r">Agreed</th><th class="r">Difference</th><th>Saved</th><th></th>
+          <th>Order</th><th>Invoice #</th><th>Item</th><th class="r">Calculated</th><th class="r">Invoiced</th><th class="r">Difference</th><th>Saved</th><th></th>
         </tr></thead>
         <tbody id="savedBody"></tbody>
       </table>
@@ -904,7 +912,7 @@
       $("totalNote").textContent = "";
     }
     window.__lastQuote = { size: size, sku: skuObj(), build: buildObj(), depth: depthLabel(), r: r };
-    $("agreed").placeholder = r.poa ? "POA — enter agreed price" : money(r.total);
+    $("agreed").placeholder = r.poa ? "POA — enter invoiced price" : money(r.total);
     $("mbarTotal").textContent = r.poa ? "POA" : money(r.total);
   }
 
@@ -924,7 +932,9 @@
     out.push(sep);
     out.push("CALCULATED: " + (q.r.poa ? ("POA" + (q.r.known > 0 ? " + " + money(q.r.known) + " known charges" : "")) : money(q.r.total)));
     var av = $("agreed").value.trim();
-    if (av !== "") { var a = parseFloat(av); if (!isNaN(a) && (q.r.poa || a !== q.r.total)) out.push("AGREED: " + money(a)); }
+    if (av !== "") { var a = parseFloat(av); if (!isNaN(a) && (q.r.poa || a !== q.r.total)) out.push("INVOICED: " + money(a)); }
+    var invNo = $("invoiceNo").value.trim();
+    if (invNo) out.push("Invoice #" + invNo);
     var txt = out.join("\n") + "\n";
     var btn = $("copyBtn");
     navigator.clipboard.writeText(txt).then(function () {
@@ -994,6 +1004,7 @@
       carriage: carriageLabel(),
       lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
       calc: calc, agreed: (isNaN(agreed) ? null : agreed),
+      invoice: $("invoiceNo").value.trim() || null,
       diagram: currentDiagram || null
     };
     var save = apiOn
@@ -1019,7 +1030,7 @@
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
     setDiagram(""); setOrderLink(""); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
-    $("agreed").value = "";
+    $("agreed").value = ""; $("invoiceNo").value = "";
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
     state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
@@ -1044,7 +1055,13 @@
     $("savedCount").textContent = "(" + arr.length + ")";
     $("savedBody").innerHTML = arr.map(function (r, i) {
       var calc = r.calc == null ? "POA" : money(r.calc);
-      var agreed = r.agreed == null ? "—" : money(r.agreed);
+      // Invoiced price: green when it matches the calculated price, red when it doesn't (mispriced)
+      var agreedCell = "—";
+      if (r.agreed != null) {
+        agreedCell = (r.calc == null)
+          ? money(r.agreed)
+          : '<span class="' + (Number(r.agreed) === Number(r.calc) ? 'pmatch' : 'pmiss') + '">' + money(r.agreed) + '</span>';
+      }
       var deltaCell = "—";
       if (r.calc != null && r.agreed != null) {
         var d = Number(r.agreed) - Number(r.calc), cls = d > 0 ? "pos" : (d < 0 ? "neg" : ""), sign = d > 0 ? "+" : "";
@@ -1052,11 +1069,13 @@
       }
       var when = new Date(r.ts).toLocaleString();
       var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
+      var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
       return '<tr class="srow" data-i="' + i + '" title="Click to view details">' +
         '<td><b>' + esc(r.order) + '</b></td>' +
+        '<td>' + inv + '</td>' +
         '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
         '<td class="r">' + calc + '</td>' +
-        '<td class="r">' + agreed + '</td>' +
+        '<td class="r">' + agreedCell + '</td>' +
         '<td class="r">' + deltaCell + '</td>' +
         '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
         '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
@@ -1080,12 +1099,13 @@
 
   function exportCSV() {
     var arr = ordersCache; if (!arr.length) return;
-    var rows = [["Order", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Agreed", "Difference", "Line items"]];
+    var rows = [["Order", "Invoice #", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
     arr.forEach(function (r) {
       var items = (r.lines || []).map(function (l) { return l.name + (l.note ? " (" + l.note + ")" : "") + " = " + (l.val == null ? "POA" : l.val); }).join(" | ");
-      rows.push([r.order, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
+      var match = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? "MATCH" : "MISMATCH") : "";
+      rows.push([r.order, r.invoice || "", new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
         r.calc == null ? "POA" : r.calc, r.agreed == null ? "" : r.agreed,
-        (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", items]);
+        (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", match, items]);
     });
     var csv = rows.map(function (row) { return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
     // Prepend a UTF-8 BOM so Excel reads it as UTF-8 (otherwise ″ · £ × — turn to mojibake).
@@ -1241,19 +1261,22 @@
     var deltaHtml = "";
     if (r.calc != null && r.agreed != null) {
       var d = Number(r.agreed) - Number(r.calc);
-      if (d !== 0) deltaHtml = '<div class="dm-line"><span class="n">Difference (agreed − calculated)</span><span class="v" style="color:' + (d > 0 ? '#c0392b' : 'var(--good)') + '">' + (d > 0 ? '+' : '') + money(d) + '</span></div>';
+      if (d !== 0) deltaHtml = '<div class="dm-line"><span class="n">Difference (invoiced − calculated)</span><span class="v" style="color:' + (d > 0 ? '#c0392b' : 'var(--good)') + '">' + (d > 0 ? '+' : '') + money(d) + '</span></div>';
     }
+    var invHtml = r.invoice ? '<div class="dm-sub" style="margin-top:2px">Invoice #' + esc(r.invoice) + '</div>' : '';
+    var agreedColor = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? 'var(--good)' : '#c0392b') : '';
     var img = r.diagram ? '<div class="dm-img"><img src="' + esc(r.diagram) + '" alt="Order diagram"></div>' : '';
     $("detailCard").innerHTML =
       '<button class="dm-close" id="dmClose" type="button" aria-label="Close">✕</button>' +
       '<div class="dm-order">' + esc(r.order) + '</div>' +
+      invHtml +
       img +
       '<div class="dm-sec-h">Specification</div>' +
       '<div class="dm-sub dm-spec">' + esc(r.size) + ' · ' + esc(r.depth) + '</div>' +
       '<div class="dm-sec-h">Price breakdown</div>' + linesHtml +
       '<div class="dm-line"><span class="n">Calculated</span><span class="v">' + calc + '</span></div>' +
       deltaHtml +
-      '<div class="dm-total"><span class="tl">Agreed price</span><span class="tv">' + agreed + '</span></div>' +
+      '<div class="dm-total"><span class="tl">Invoiced price</span><span class="tv"' + (agreedColor ? ' style="color:' + agreedColor + '"' : '') + '>' + agreed + '</span></div>' +
       '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>' +
       '<div class="dm-actions"><button class="btn ghost" id="dmPrint" type="button">Print this order</button></div>';
     $("detailModal").hidden = false;
@@ -1273,6 +1296,7 @@
       size: q.size.label, depth: q.depth, carriage: carriageLabel(),
       lines: q.r.lines, calc: q.r.poa ? null : q.r.total,
       agreed: av === "" ? null : parseFloat(av),
+      invoice: $("invoiceNo").value.trim() || null,
       poa: q.r.poa, known: q.r.known, diagram: currentDiagram || null
     };
   }
@@ -1293,7 +1317,7 @@
     if (d.calc == null) totalNote = d.known > 0 ? 'plus ' + money(d.known) + ' known charges (base priced by hand)' : 'base priced by hand';
     var agreedHtml = "";
     if (d.agreed != null && d.agreed !== d.calc) {
-      agreedHtml = '<div class="pd-agreed"><span class="al">Agreed price</span><span class="av">' + money(d.agreed) + '</span></div>';
+      agreedHtml = '<div class="pd-agreed"><span class="al">Invoiced price</span><span class="av">' + money(d.agreed) + '</span></div>';
     }
     var aside = d.diagram ? '<div class="pd-aside"><img src="' + esc(d.diagram) + '" alt="Order diagram"><div class="cap">Shape diagram</div></div>' : '';
     var date = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -1301,7 +1325,7 @@
       '<div class="pd-head"><span class="pd-brand">Price Quote</span><span class="pd-date">' + esc(date) + '</span></div>' +
       '<div class="pd-body' + (d.diagram ? ' has-img' : '') + '">' +
         '<div class="pd-main">' +
-          (d.order ? '<div class="pd-order">Order ' + esc(d.order) + '</div>' : '') +
+          (d.order ? '<div class="pd-order">Order ' + esc(d.order) + (d.invoice ? ' <span style="font-weight:400;color:#555">· Invoice #' + esc(d.invoice) + '</span>' : '') + '</div>' : '') +
           (specRows ? '<div class="pd-sec">Specification</div><div class="pd-spec">' + specRows + '</div>' : '') +
         '</div>' +
         aside +

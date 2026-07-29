@@ -76,6 +76,7 @@ async function initDb() {
   `);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS diagram TEXT`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier TEXT`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice TEXT`);
   // Backfill legacy rows (saved before per-supplier tagging): Comfi/Imperial = Mattressshire, else Southern.
   await pool.query(`UPDATE orders SET supplier = 'mattressshire' WHERE supplier IS NULL AND (model ILIKE '%comfi%' OR model ILIKE '%imperial%')`);
   await pool.query(`UPDATE orders SET supplier = 'southern' WHERE supplier IS NULL`);
@@ -96,7 +97,7 @@ app.get("/api/orders", async (_req, res) => {
     let where = "", params = [];
     if (SUPPLIER !== "combined") { where = "WHERE supplier = $1"; params = [SUPPLIER]; }
     const { rows } = await pool.query(
-      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram, supplier
+      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram, supplier, invoice
          FROM orders ${where} ORDER BY created_at DESC LIMIT 2000`, params
     );
     res.json(rows);
@@ -110,12 +111,13 @@ app.post("/api/orders", async (req, res) => {
   if (!b.order) return res.status(400).json({ error: "order number required" });
   try {
     const { rows } = await pool.query(
-      `INSERT INTO orders (order_no, model, size, depth, calc, agreed, carriage, lines, diagram, supplier)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      `INSERT INTO orders (order_no, model, size, depth, calc, agreed, carriage, lines, diagram, supplier, invoice)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
       [b.order, b.model || null, b.size || null, b.depth || null,
        b.calc == null ? null : b.calc, b.agreed == null ? null : b.agreed,
        b.carriage || null, JSON.stringify(b.lines || []), b.diagram || null,
-       SUPPLIER]  // tag with THIS deployment's supplier so each calculator lists only its own
+       SUPPLIER,  // tag with THIS deployment's supplier so each calculator lists only its own
+       b.invoice || null]
     );
     res.json({ ok: true, id: rows[0].id });
   } catch (e) { console.error(e); res.status(500).json({ error: "save failed" }); }
