@@ -21,10 +21,10 @@ const DNOVO  = ['6″ (15cm)', '8″ (20cm)', '10″ (25cm)'];
 // ---- Southern Production (from the Southern price sheets) ----
 const SOUTHERN_SKUS = [
   { id: "essential", name: "Essential", builds: [
-    { id: "ess-white", label: "30/130 White", full: "30/130 White", depths: DFULL, grid: {
+    { id: "ess-white", label: "30/130 White", full: "30/130 White", codeMatch: "30/130", depths: DFULL, grid: {
       single: [50,56,63,70,80,90,105], double: [62,70,80,90,100,115,135],
       king: [69,77,87,97,110,125,150], sking: [85,95,105,120,135,155,190] } },
-    { id: "ess-blue", label: "33/175 Blue", full: "33/175 Blue", depths: DFULL, grid: {
+    { id: "ess-blue", label: "33/175 Blue", full: "33/175 Blue", codeMatch: "33/175", depths: DFULL, grid: {
       single: [60,66,73,80,90,100,115], double: [72,80,90,100,110,125,145],
       king: [79,87,97,107,120,135,160], sking: [95,105,115,130,145,165,200] } }
   ]},
@@ -34,21 +34,21 @@ const SOUTHERN_SKUS = [
       king: [140,155,180], sking: [165,185,220] } }
   ]},
   { id: "body", name: "Body", builds: [
-    { id: "body-1v40", label: "1″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 1″ Vasco 40", depths: D1TOP, grid: {
+    { id: "body-1v40", label: "1″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 1″ Vasco 40", codeMatch: '1" vasco 40', depths: D1TOP, grid: {
       single: [115,128,140], double: [135,150,165], king: [145,160,180], sking: [170,190,210] } },
-    { id: "body-2v40", label: "2″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 2″ Vasco 40", depths: D2TOP, grid: {
+    { id: "body-2v40", label: "2″ Vasco 40", full: "33/175 Blue + RF39/120 Peach + 2″ Vasco 40", codeMatch: '2" vasco 40', depths: D2TOP, grid: {
       single: [120,135,150], double: [145,165,185], king: [155,175,200], sking: [185,210,235] } }
   ]},
   { id: "cool", name: "Cool", builds: [
-    { id: "cool-1fr", label: "1″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 1″ FR50/125", depths: D1TOP, grid: {
+    { id: "cool-1fr", label: "1″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 1″ FR50/125", codeMatch: '1" fr50/125', depths: D1TOP, grid: {
       single: [160,167.5,196], double: [195,210.25,243.5], king: [210,224.5,262.5], sking: [230,248.25,291] } },
-    { id: "cool-2fr", label: "2″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 2″ FR50/125", depths: D2TOP, grid: {
+    { id: "cool-2fr", label: "2″ FR50/125", full: "33/175 Blue + RF39/120 Peach + 2″ FR50/125", codeMatch: '2" fr50/125', depths: D2TOP, grid: {
       single: [160,175,205], double: [195,220,255], king: [210,235,275], sking: [230,260,305] } }
   ]},
   { id: "grand", name: "Grand", builds: [
-    { id: "grand-v40", label: "2″ Vasco 40", full: "33/175 + RF39/120 + 2″ Vasco 40", depths: DGRAND, grid: {
+    { id: "grand-v40", label: "2″ Vasco 40", full: "33/175 + RF39/120 + 2″ Vasco 40", codeMatch: "vasco 40 top", depths: DGRAND, grid: {
       single: [130,145], double: [160,180], king: [170,195], sking: [205,230] } },
-    { id: "grand-v60", label: "2″ Vasco 60", full: "33/175 + RF39/120 + 2″ Vasco 60", depths: DGRAND, grid: {
+    { id: "grand-v60", label: "2″ Vasco 60", full: "33/175 + RF39/120 + 2″ Vasco 60", codeMatch: "vasco 60 top", depths: DGRAND, grid: {
       single: [182.5,214], double: [229.75,266.5], king: [245.5,287.5], sking: [271.75,319] } }
   ]},
   { id: "bodyt", name: "BodyT", builds: [

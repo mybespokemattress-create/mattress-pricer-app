@@ -81,6 +81,7 @@
   .autobuild { font-size: 13px; color: var(--body); background: var(--accent-wash); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
   .autobuild b { color: var(--ink); }
   .autobuild .hint { color: var(--muted); font-weight: 400; }
+  .linkbtn { background: none; border: 0; padding: 0; margin-left: 6px; font: inherit; font-weight: 700; color: var(--accent); text-decoration: underline; cursor: pointer; }
 
   .layout { display: grid; grid-template-columns: 1fr 380px; gap: 22px; align-items: start; }
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr 320px; gap: 18px; } } /* tablet: trimmer quote column */
@@ -599,6 +600,7 @@
 
   var state = { sku: "", buildId: "", size: "", depthIdx: null, extras: {}, carriage: "none", carriageAmt: "" };
   var dirty = false; // unsaved changes since last Save/Clear
+  var buildAutoResolved = false; // true when the exact build was auto-picked from the order's supplier code (hide the picker, show a confirmation chip)
   function markDirty() { dirty = true; var e = document.getElementById("clearErr"); if (e) e.hidden = true; }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -639,7 +641,18 @@
       sel.innerHTML = '<option value="" disabled selected hidden>Select foam recipe…</option>';
       sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.full; sel.appendChild(o); });
       sel.value = state.buildId || "";
-      pick.hidden = false; auto.hidden = true;
+      if (buildAutoResolved && state.buildId) {
+        // auto-picked from the order's supplier code → confirmation chip instead of the dropdown (operator can still Change it)
+        var b = buildObj();
+        pick.hidden = true; auto.hidden = false;
+        auto.innerHTML = '<b>Exact recipe:</b> ' + esc(b ? b.full : "") +
+          ' <span class="hint">— matched from the order code.</span>' +
+          ' <button type="button" class="linkbtn" id="buildChange">Change</button>';
+        var cb = $("buildChange");
+        if (cb) cb.addEventListener("click", function () { buildAutoResolved = false; refreshBuild(); });
+      } else {
+        pick.hidden = false; auto.hidden = true; auto.innerHTML = "";
+      }
     } else {
       // single build → nothing to choose; the recipe is already in the SKU dropdown + Supplier Code, so no redundant notice
       pick.hidden = true; auto.hidden = true; auto.innerHTML = "";
@@ -661,7 +674,7 @@
     SIZES.forEach(function (s) { var o = document.createElement("option"); o.value = s.key; o.textContent = s.label; sz.appendChild(o); });
     refreshBuild();
 
-    sel.addEventListener("change", function () { state.sku = this.value; state.buildId = ""; state.depthIdx = null; refreshBuild(); render(); });
+    sel.addEventListener("change", function () { state.sku = this.value; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; refreshBuild(); render(); });
     $("build").addEventListener("change", function () { state.buildId = this.value; state.depthIdx = null; refreshDepth(); render(); });
     $("depth").addEventListener("change", function () { state.depthIdx = this.value === "" ? null : parseInt(this.value, 10); render(); });
     sz.addEventListener("change", function () { state.size = this.value; render(); });
@@ -993,7 +1006,7 @@
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
     setDiagram(""); setOrderLink(""); setSupplierCode(""); codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
-    state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null;
+    state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
     state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
     Array.prototype.slice.call($("extras").querySelectorAll(".ex")).forEach(function (row) {
@@ -1124,7 +1137,19 @@
     var filled = [];
     if (d.pricerSku) {
       var m = SKUS.filter(function (s) { return s.name.toLowerCase() === String(d.pricerSku).toLowerCase(); })[0];
-      if (m) { state.sku = m.id; state.buildId = ""; state.depthIdx = null; $("sku").value = m.id; refreshBuild(); filled.push("SKU"); if (state.depthIdx != null) filled.push("depth"); }
+      if (m) {
+        state.sku = m.id; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = m.id;
+        // auto-pick the exact build from the order's supplier code (only when it resolves to exactly ONE of this SKU's builds)
+        if (m.builds.length > 1 && d.supplierCode) {
+          var norm = String(d.supplierCode).replace(/\s+/g, " ").toLowerCase();
+          var hits = m.builds.filter(function (b) { return b.codeMatch && norm.indexOf(b.codeMatch) !== -1; });
+          if (hits.length === 1) { state.buildId = hits[0].id; buildAutoResolved = true; }
+        }
+        refreshBuild();
+        filled.push("SKU");
+        if (buildAutoResolved) filled.push("recipe");
+        if (state.depthIdx != null) filled.push("depth");
+      }
     }
     var sz = sizeFromMeasurements(d.widthA, d.lengthB);
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
@@ -1136,8 +1161,9 @@
     render();
     var st = $("orderStatus"); st.className = "order-status";
     var dims = (d.widthA != null || d.lengthB != null) ? (" · A " + (d.widthA != null ? d.widthA : "?") + "cm, B " + (d.lengthB != null ? d.lengthB : "?") + "cm") : "";
+    var todo = buildAutoResolved ? "Now set the depth and any extras." : "Now set the recipe, depth and any extras.";
     st.innerHTML = filled.length
-      ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". Now set the build, depth and any extras."
+      ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". " + todo
       : "Order found, but nothing auto-filled — enter the details manually.";
   }
 
