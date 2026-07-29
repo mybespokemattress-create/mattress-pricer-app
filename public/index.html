@@ -414,7 +414,7 @@
 
       <div class="sec">
         <h2><span class="step">1</span> Foam recipe</h2>
-        <label class="fld">
+        <label class="fld" id="skuField">
           <span class="lab">Foam recipe <span class="hint">(from the order)</span></span>
           <div class="select-wrap"><select id="sku"></select></div>
         </label>
@@ -428,7 +428,7 @@
       </div>
 
       <div class="sec">
-        <h2><span class="step">2</span> Supplier code &amp; depth</h2>
+        <h2 id="sec2h"><span class="step">2</span> Supplier code &amp; depth</h2>
         <div class="order-code" id="orderCode" hidden></div>
         <label class="fld" style="margin-top:14px;">
           <span class="lab">Depth</span>
@@ -635,15 +635,17 @@
     sel.value = (state.depthIdx == null) ? "" : String(state.depthIdx);
   }
   function refreshBuild() {
-    var sku = skuObj(), sel = $("build"), pick = $("buildPick"), auto = $("buildAuto");
-    if (!sku) { pick.hidden = true; auto.hidden = true; sel.innerHTML = ""; refreshDepth(); return; }
-    if (sku.builds.length > 1) {
+    var sku = skuObj(), sel = $("build"), pick = $("buildPick"), auto = $("buildAuto"), skuField = $("skuField");
+    var chip = false; // true when the auto-resolved recipe chip is shown in place of the dropdowns
+    if (!sku) { pick.hidden = true; auto.hidden = true; sel.innerHTML = ""; }
+    else if (sku.builds.length > 1) {
       sel.innerHTML = '<option value="" disabled selected hidden>Select foam recipe…</option>';
       sku.builds.forEach(function (b) { var o = document.createElement("option"); o.value = b.id; o.textContent = b.full; sel.appendChild(o); });
       sel.value = state.buildId || "";
       if (buildAutoResolved && state.buildId) {
-        // auto-picked from the order's supplier code → confirmation chip instead of the dropdown (operator can still Change it)
+        // auto-picked from the order's supplier code → ONE confirmation chip replaces both the group + exact dropdowns (operator can still Change it)
         var b = buildObj();
+        chip = true;
         pick.hidden = true; auto.hidden = false;
         auto.innerHTML = '<b>Exact recipe:</b> ' + esc(b ? b.full : "") +
           ' <span class="hint">— matched from the order code.</span>' +
@@ -654,10 +656,12 @@
         pick.hidden = false; auto.hidden = true; auto.innerHTML = "";
       }
     } else {
-      // single build → nothing to choose; the recipe is already in the SKU dropdown + Supplier Code, so no redundant notice
+      // single build → nothing to choose; the recipe already leads the Foam recipe dropdown
       pick.hidden = true; auto.hidden = true; auto.innerHTML = "";
     }
+    if (skuField) skuField.hidden = chip; // chip already names the recipe → the group dropdown above it is redundant (Change brings it back)
     refreshDepth();
+    refreshSupplierCode();
   }
   function buildControls() {
     var sel = $("sku");
@@ -935,6 +939,16 @@
   var ordersCache = [];   // last-loaded order list
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
+  var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
+
+  // Show the raw supplier code only when it ISN'T already represented by the auto-resolved recipe chip
+  // (or when it carries a watch-word flag like tufting). Keeps section 2 to just "Depth" once the recipe is known.
+  function refreshSupplierCode() {
+    var show = !!currentCode && (!buildAutoResolved || !!currentCodeWatch);
+    setSupplierCode(show ? currentCode : "", currentCodeWatch);
+    var h = $("sec2h");
+    if (h) h.innerHTML = '<span class="step">2</span> ' + (show ? "Supplier code &amp; depth" : "Depth");
+  }
   function loadLocal() { try { var s = localStorage.getItem(QUOTES_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
   function saveLocal(a) { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(a)); } catch (e) {} }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -1004,7 +1018,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); setOrderLink(""); setSupplierCode(""); codeDepthInches = null; updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
@@ -1133,12 +1147,14 @@
   function applyOrder(d) {
     if (!d) return;
     codeDepthInches = deriveDepthInches(d.supplierCode); // set before refreshBuild so refreshDepth can use it
+    currentCode = d.supplierCode || ""; currentCodeWatch = null; // set before refreshBuild → refreshSupplierCode
     if (d.orderNumber) { $("orderNo").value = d.orderNumber; $("orderNo").classList.remove("err"); }
     var filled = [];
     if (d.pricerSku) {
       var m = SKUS.filter(function (s) { return s.name.toLowerCase() === String(d.pricerSku).toLowerCase(); })[0];
       if (m) {
         state.sku = m.id; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = m.id;
+        currentCodeWatch = m.codeWatch || null; // set before refreshBuild so the code block keeps any watch-word flag
         // auto-pick the exact build from the order's supplier code (only when it resolves to exactly ONE of this SKU's builds)
         if (m.builds.length > 1 && d.supplierCode) {
           var norm = String(d.supplierCode).replace(/\s+/g, " ").toLowerCase();
@@ -1155,7 +1171,7 @@
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
     setDiagram(d.diagramUrl || "");
     setOrderLink(d.linkAttachment || "");
-    setSupplierCode(d.supplierCode || "", m && m.codeWatch);  // always show the code (bespoke builds need checking); watch-word only where set (Imperial → tufting)
+    refreshSupplierCode();  // show the code only when it isn't already covered by the auto-resolved recipe chip (or when it carries a watch-word flag)
     updateQuoteHeader();
     dirty = true;
     render();
