@@ -196,7 +196,7 @@
   .order-status { margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--accent-deep); }
   .order-status.err { color: #b02a1f; }
   .order-status:empty { display: none; }
-  .order-link { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-wash); font-size: 14px; color: var(--ink); }
+  .order-link { position: sticky; top: 8px; z-index: 20; margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-wash); font-size: 14px; color: var(--ink); box-shadow: 0 2px 8px rgba(20,22,61,.08); }
   .order-link .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin-bottom: 2px; }
   .order-link b { font-weight: 700; }
   .order-code { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong); border-radius: 8px; background: var(--panel-2); font-size: 12.5px; line-height: 1.5; color: var(--body); }
@@ -453,9 +453,9 @@
 
       <div class="sec">
         <h2><span class="step">4</span> Finishing &amp; extras</h2>
-        <div class="order-link" id="orderLink" hidden></div>
         <div class="order-diagram" id="orderDiagram" hidden></div>
         <p class="sechint">Drag <span class="g">⠿</span> to reorder — put your most-used at the top. The order is remembered.</p>
+        <div class="order-link" id="orderLink" hidden></div>
         <div class="extras" id="extras"></div>
       </div>
 
