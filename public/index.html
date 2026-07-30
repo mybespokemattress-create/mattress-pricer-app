@@ -197,8 +197,11 @@
   .order-status.err { color: #b02a1f; }
   .order-status:empty { display: none; }
   .order-link { position: sticky; top: 8px; z-index: 20; margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--accent-wash); font-size: 14px; color: var(--ink); box-shadow: 0 2px 8px rgba(20,22,61,.08); }
+  .order-link { padding-right: 34px; } /* room for the dismiss × */
   .order-link .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--accent-deep); font-weight: 700; margin-bottom: 2px; }
   .order-link b { font-weight: 700; }
+  .order-link .ol-x { position: absolute; top: 6px; right: 7px; background: none; border: 0; padding: 2px 6px; font-size: 13px; line-height: 1; color: var(--muted); cursor: pointer; border-radius: 6px; }
+  .order-link .ol-x:hover { color: var(--ink); background: rgba(0,0,0,.07); }
   .order-code { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong); border-radius: 8px; background: var(--panel-2); font-size: 12.5px; line-height: 1.5; color: var(--body); }
   .order-code .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
   .order-code mark { background: #ffe08a; color: #6b4a00; font-weight: 800; padding: 0 2px; border-radius: 3px; }
@@ -1211,7 +1214,13 @@
   }
   function setOrderLink(val) {
     var el = $("orderLink");
-    if (val && String(val).trim()) { el.innerHTML = '<span class="ol-lab">Link / join</span><b>' + esc(val) + '</b>'; el.hidden = false; }
+    if (val && String(val).trim()) {
+      el.innerHTML = '<button type="button" class="ol-x" id="olX" title="Dismiss" aria-label="Dismiss link reminder">✕</button>' +
+        '<span class="ol-lab">Link / join</span><b>' + esc(val) + '</b>';
+      el.hidden = false;
+      var x = $("olX");
+      if (x) x.addEventListener("click", function () { el.hidden = true; }); // dismiss once the link's been added to the price list
+    }
     else { el.hidden = true; el.innerHTML = ""; }
   }
   // Sum the foam-layer thicknesses in a supplier code (straight-quote inches) → total depth in inches.
