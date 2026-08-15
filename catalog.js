@@ -107,8 +107,13 @@ const MATTRESSSHIRE_EXTRAS = [
   { id: "misc",         name: "Miscellaneous",                     type: "misc" }
 ];
 
-const SOUTHERN      = { key: "southern",      name: "Southern Production",     badge: "#0c7c6f", skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS };
-const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", badge: "#7c3aed", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS };
+// Invoice reconciliation model per supplier. The calculator prices in NET; the supplier's
+// invoice adds an extra line then VAT. Southern: a foam surcharge = surchargePct of the mattress
+// lines (auto). Mattressshire: boxes = qty x boxPrice (operator enters qty). Then vatPct on the net.
+const SOUTHERN      = { key: "southern",      name: "Southern Production",     badge: "#0c7c6f", skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS,
+                        invoice: { vatPct: 0.20, surchargePct: 0.12, surchargeName: "Foam surcharge (12%)" } };
+const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", badge: "#7c3aed", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS,
+                        invoice: { vatPct: 0.20, boxPrice: 8, boxName: "Boxes" } };
 
 module.exports = {
   southern:      SOUTHERN,
@@ -117,5 +122,6 @@ module.exports = {
   combined:      { key: "combined", name: "All suppliers", multi: true, badge: "#334155",
                    suppliers: [SOUTHERN, MATTRESSSHIRE],
                    skus: SOUTHERN_SKUS.concat(MATTRESSSHIRE_SKUS),
-                   extras: SOUTHERN_EXTRAS }
+                   extras: SOUTHERN_EXTRAS,
+                   invoice: { vatPct: 0.20, boxPrice: 8, boxName: "Boxes" } }
 };

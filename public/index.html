@@ -524,6 +524,7 @@
           <input type="number" id="boxesQty" class="txtin num" step="1" min="0" inputmode="numeric" placeholder="0" autocomplete="off">
         </div>
         <div class="batchnote" id="batchNote" hidden></div>
+        <button type="button" class="btn ghost" id="calcInvoiceBtn" style="width:100%; margin-top:10px;">🧮 Calculate invoice</button>
       </div>
       <div class="actions">
         <button class="btn primary" id="saveNextBtn" type="button">Save &amp; Next order →</button>
@@ -602,6 +603,11 @@
   <div class="modal-card" id="detailCard"></div>
 </div>
 
+<div class="modal" id="invoiceModal" hidden>
+  <div class="modal-backdrop" id="invoiceBackdrop"></div>
+  <div class="modal-card" id="invoiceCard"></div>
+</div>
+
 <!-- print document: built on demand by renderPrintDoc(), the only thing shown when printing -->
 <div id="printDoc" aria-hidden="true"></div>
 
@@ -621,6 +627,20 @@
   // ---------- Product catalogue (injected per-supplier by the server; see catalog.js) ----------
   // window.__CATALOG__ is set by the server for this deployment's supplier only.
   var CATALOG = window.__CATALOG__ || { name: "", skus: [] };
+  var INV = CATALOG.invoice || { vatPct: 0.20 }; // this supplier's invoice model (surcharge/boxes + VAT)
+
+  // Roll a whole invoice up from its saved mattress lines: mattresses (net) + the supplier's extra
+  // line (Southern foam surcharge = % of mattresses, or Mattressshire boxes = qty x price) + VAT.
+  function computeInvoice(items, boxQty) {
+    var mattressNet = 0, hasInv = false;
+    (items || []).forEach(function (r) { if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; } });
+    var surcharge = INV.surchargePct ? mattressNet * INV.surchargePct : 0;
+    var boxes = (INV.boxPrice && boxQty) ? boxQty * INV.boxPrice : 0;
+    var net = mattressNet + surcharge + boxes;
+    var vat = net * (INV.vatPct || 0);
+    return { count: (items || []).length, hasInv: hasInv, mattressNet: mattressNet,
+             surcharge: surcharge, boxes: boxes, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
+  }
   var SKUS = CATALOG.skus || [];
 
   // ---------- Carriage ----------
@@ -980,7 +1000,6 @@
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
-  var BOX_PRICE = 8; // Mattressshire boxes: one line for the whole invoice, £8 per box
 
   // Show the raw supplier code only when it ISN'T already represented by the auto-resolved recipe chip
   // (or when it carries a watch-word flag like tufting). Keeps section 2 to just "Depth" once the recipe is known.
@@ -1094,26 +1113,18 @@
     var inv = ($("invoiceNo").value || "").trim();
     if (!inv) { el.hidden = true; el.innerHTML = ""; return; }
     var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
-    var n = items.length, invSum = 0, hasInv = false, invTotal = null, boxQtyStored = null;
-    items.forEach(function (r) {
-      if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
-      if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
-      if (boxQtyStored == null && r.boxQty != null) boxQtyStored = Number(r.boxQty);
-    });
-    var itRaw = ($("invoiceTotal").value || "").trim();
-    if (itRaw !== "") invTotal = parseFloat(itRaw);
-    var bqRaw = ($("boxesQty").value || "").trim();
-    var boxQty = bqRaw !== "" ? parseFloat(bqRaw) : (boxQtyStored || 0);
-    var boxCharge = (boxQty || 0) * BOX_PRICE;
-    var expected = invSum + boxCharge; // mattress lines + the invoice's single boxes line
-    var html = '<b>Invoice ' + esc(inv) + '</b> — ' + n + (n === 1 ? ' item' : ' items') + ' saved';
-    if (hasInv) html += ' · ' + money(invSum) + ' invoiced';
-    if (boxCharge > 0) html += ' + ' + money(boxCharge) + ' boxes (' + boxQty + '×£' + BOX_PRICE + ')';
+    var boxQty = null, invTotal = null;
+    items.forEach(function (r) { if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty); if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal); });
+    var bqRaw = ($("boxesQty").value || "").trim(); if (bqRaw !== "") boxQty = parseFloat(bqRaw);
+    var itRaw = ($("invoiceTotal").value || "").trim(); if (itRaw !== "") invTotal = parseFloat(itRaw);
+    var c = computeInvoice(items, boxQty || 0);
+    var html = '<b>Invoice ' + esc(inv) + '</b> — ' + c.count + (c.count === 1 ? ' item' : ' items') + ' saved';
+    if (c.hasInv) html += ' · net ' + money(c.net) + (INV.vatPct ? ' · <b>' + money(c.gross) + '</b> inc VAT' : '');
     if (invTotal != null && !isNaN(invTotal)) {
-      var diff = Math.round((invTotal - expected) * 100) / 100;
+      var diff = Math.round((invTotal - c.gross) * 100) / 100;
       html += (Math.abs(diff) < 0.005)
-        ? ' <span class="bn-ok">= ' + money(expected) + ' ✓ balances</span>'
-        : ' <span class="bn-off">= ' + money(expected) + ' of ' + money(invTotal) + ' (' + (diff > 0 ? money(diff) + ' to go' : money(-diff) + ' over') + ')</span>';
+        ? ' <span class="bn-ok">✓ balances</span>'
+        : ' <span class="bn-off">vs ' + money(invTotal) + ' (' + (diff > 0 ? money(diff) + ' to go' : money(-diff) + ' over') + ')</span>';
     }
     el.innerHTML = html;
     el.hidden = false;
@@ -1170,33 +1181,28 @@
       if (g.invoice == null || g.items.length < 2) {
         return g.items.map(function (it) { return rowHtml(it.r, it.i, null); }).join("");
       }
-      var calcSum = 0, invSum = 0, mism = 0, invTotal = null, hasInv = false, boxQty = null;
+      var mism = 0, invTotal = null, boxQty = null, itemsArr = [];
       g.items.forEach(function (it) {
-        var r = it.r;
-        if (r.calc != null) calcSum += Number(r.calc);
-        if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
+        var r = it.r; itemsArr.push(r);
         if (r.calc != null && r.agreed != null && Number(r.calc) !== Number(r.agreed)) mism++;
         if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
         if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty);
       });
+      var c = computeInvoice(itemsArr, boxQty || 0);
       var n = g.items.length;
-      var boxCharge = (boxQty || 0) * BOX_PRICE;
-      var expected = invSum + boxCharge; // mattress lines + the invoice's boxes line
       var flag = mism > 0
         ? '<span class="gh-off">⚠ ' + mism + ' mismatch' + (mism > 1 ? 'es' : '') + '</span>'
         : '<span class="gh-ok">✓ all match</span>';
-      var totalBit = '';
-      if (boxCharge > 0) totalBit += ' · +' + money(boxCharge) + ' boxes';
-      if (invTotal != null && hasInv) {
-        var diff = Math.round((invTotal - expected) * 100) / 100;
+      var totalBit = ' · net ' + money(c.net) + (INV.vatPct ? ' · ' + money(c.gross) + ' inc VAT' : '');
+      if (invTotal != null && c.hasInv) {
+        var diff = Math.round((invTotal - c.gross) * 100) / 100;
         totalBit += (Math.abs(diff) < 0.005)
-          ? ' · <span class="gh-ok">balances ' + money(invTotal) + '</span>'
-          : ' · <span class="gh-off">' + money(expected) + ' of ' + money(invTotal) + '</span>';
+          ? ' · <span class="gh-ok">balances</span>'
+          : ' · <span class="gh-off">vs ' + money(invTotal) + '</span>';
       }
       var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
-        '<span class="gh-meta">· ' + n + ' items · Calc ' + money(calcSum) +
-        (hasInv ? ' · Invoiced ' + money(invSum) : '') + totalBit + ' · </span>' + flag +
+        '<span class="gh-meta">· ' + n + ' items' + totalBit + ' · </span>' + flag +
         '</td></tr>';
       return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
     }).join("");
@@ -1421,6 +1427,48 @@
   }
   function closeDetail() { $("detailModal").hidden = true; }
 
+  // "Calculate invoice" — roll up the current invoice like the paper one (orders + supplier extra + VAT).
+  function openInvoiceSummary() {
+    var inv = ($("invoiceNo").value || "").trim();
+    if (!inv) { flash($("calcInvoiceBtn"), "Enter an invoice number first"); return; }
+    var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
+    if (!items.length) { flash($("calcInvoiceBtn"), "No saved orders for this invoice yet"); return; }
+    var boxQty = null, invTotal = null;
+    items.forEach(function (r) { if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty); if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal); });
+    var bqRaw = ($("boxesQty").value || "").trim(); if (bqRaw !== "") boxQty = parseFloat(bqRaw);
+    var itRaw = ($("invoiceTotal").value || "").trim(); if (itRaw !== "") invTotal = parseFloat(itRaw);
+    var c = computeInvoice(items, boxQty || 0);
+    var lines = items.slice().reverse().map(function (r) { // reverse → oldest first, reads like the invoice
+      return '<div class="dm-line"><span class="n">' + esc(r.order) + ' <small style="color:var(--muted)">' + esc(r.model) + '</small></span><span class="v">' + (r.agreed == null ? '—' : money(r.agreed)) + '</span></div>';
+    }).join("");
+    var extraLine = "";
+    if (c.surcharge > 0) extraLine = '<div class="dm-line"><span class="n">' + esc(INV.surchargeName || "Surcharge") + '</span><span class="v">' + money(c.surcharge) + '</span></div>';
+    else if (c.boxes > 0) extraLine = '<div class="dm-line"><span class="n">' + esc(INV.boxName || "Boxes") + ' (' + c.boxQty + ' × ' + money(INV.boxPrice) + ')</span><span class="v">' + money(c.boxes) + '</span></div>';
+    var netLine = '<div class="dm-line"><span class="n"><b>Net subtotal</b></span><span class="v"><b>' + money(c.net) + '</b></span></div>';
+    var vatLine = INV.vatPct ? '<div class="dm-line"><span class="n">VAT ' + Math.round(INV.vatPct * 100) + '%</span><span class="v">' + money(c.vat) + '</span></div>' : "";
+    var checkHtml = "";
+    if (invTotal != null && !isNaN(invTotal)) {
+      var diff = Math.round((invTotal - c.gross) * 100) / 100;
+      checkHtml = (Math.abs(diff) < 0.005)
+        ? '<div class="dm-sub" style="margin-top:12px;color:var(--good);font-weight:800">✓ Balances your invoice total of ' + money(invTotal) + '</div>'
+        : '<div class="dm-sub" style="margin-top:12px;color:#c0392b;font-weight:800">⚠ Your invoice total is ' + money(invTotal) + ' — ' + (diff > 0 ? money(diff) + ' more than this' : money(-diff) + ' less than this') + '</div>';
+    } else {
+      checkHtml = '<div class="dm-sub" style="margin-top:12px">Enter the Invoice total to check it against this.</div>';
+    }
+    $("invoiceCard").innerHTML =
+      '<button class="dm-close" id="invClose" type="button" aria-label="Close">✕</button>' +
+      '<div class="dm-order">Invoice ' + esc(inv) + '</div>' +
+      '<div class="dm-sub" style="margin-bottom:6px">' + c.count + ' order' + (c.count === 1 ? '' : 's') + ' · ' + esc(CATALOG.name || "") + '</div>' +
+      '<div class="dm-sec-h">Orders</div>' + lines +
+      (extraLine ? '<div class="dm-sec-h">Charges</div>' + extraLine : '') +
+      '<div style="margin-top:8px"></div>' + netLine + vatLine +
+      '<div class="dm-total"><span class="tl">Invoice total</span><span class="tv">' + money(c.gross) + '</span></div>' +
+      checkHtml;
+    $("invoiceModal").hidden = false;
+    $("invClose").addEventListener("click", closeInvoiceModal);
+  }
+  function closeInvoiceModal() { $("invoiceModal").hidden = true; }
+
   // ---------- printable quote document (order # at top, everything under it) ----------
   // Normalise the live on-screen quote to the same shape as a saved record.
   function currentQuoteForPrint() {
@@ -1521,6 +1569,8 @@
   $("wipeBtn").addEventListener("click", wipeSaved);
   $("orderNo").addEventListener("input", function () { this.classList.remove("err"); updateQuoteHeader(); });
   $("detailBackdrop").addEventListener("click", closeDetail);
+  $("calcInvoiceBtn").addEventListener("click", openInvoiceSummary);
+  $("invoiceBackdrop").addEventListener("click", closeInvoiceModal);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDetail(); });
   $("orderNo").addEventListener("input", function () {
     if (!lookupEnabled) return;
