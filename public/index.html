@@ -519,6 +519,10 @@
       <div class="agreed">
         <label for="invoiceTotal">Invoice total £ <span class="hint">optional — the whole invoice's grand total, to reconcile</span></label>
         <input type="number" id="invoiceTotal" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—" autocomplete="off">
+        <div id="boxesRow">
+          <label for="boxesQty" class="agreed-l2">Boxes <span class="hint">£8 each — one line for the whole invoice</span></label>
+          <input type="number" id="boxesQty" class="txtin num" step="1" min="0" inputmode="numeric" placeholder="0" autocomplete="off">
+        </div>
         <div class="batchnote" id="batchNote" hidden></div>
       </div>
       <div class="actions">
@@ -976,6 +980,7 @@
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
+  var BOX_PRICE = 8; // Mattressshire boxes: one line for the whole invoice, £8 per box
 
   // Show the raw supplier code only when it ISN'T already represented by the auto-resolved recipe chip
   // (or when it carries a watch-word flag like tufting). Keeps section 2 to just "Depth" once the recipe is known.
@@ -1025,6 +1030,7 @@
     var av = $("agreed").value.trim();
     var agreed = av === "" ? calc : parseFloat(av);
     var itRaw = $("invoiceTotal").value.trim();
+    var bqRaw = $("boxesQty").value.trim();
     var rec = {
       order: order,
       ts: new Date().toISOString(),
@@ -1034,6 +1040,7 @@
       calc: calc, agreed: (isNaN(agreed) ? null : agreed),
       invoice: $("invoiceNo").value.trim() || null,
       invoiceTotal: itRaw === "" ? null : parseFloat(itRaw),
+      boxQty: bqRaw === "" ? null : parseFloat(bqRaw),
       diagram: currentDiagram || null
     };
     var save = apiOn
@@ -1062,7 +1069,7 @@
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
     setDiagram(""); setOrderLink(""); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
-    if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; }  // a batch (Save & Next) keeps the invoice # + total
+    if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; $("boxesQty").value = ""; }  // a batch (Save & Next) keeps the invoice # + total + boxes
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
     state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
@@ -1087,20 +1094,26 @@
     var inv = ($("invoiceNo").value || "").trim();
     if (!inv) { el.hidden = true; el.innerHTML = ""; return; }
     var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
-    var n = items.length, invSum = 0, hasInv = false, invTotal = null;
+    var n = items.length, invSum = 0, hasInv = false, invTotal = null, boxQtyStored = null;
     items.forEach(function (r) {
       if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
       if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
+      if (boxQtyStored == null && r.boxQty != null) boxQtyStored = Number(r.boxQty);
     });
     var itRaw = ($("invoiceTotal").value || "").trim();
     if (itRaw !== "") invTotal = parseFloat(itRaw);
+    var bqRaw = ($("boxesQty").value || "").trim();
+    var boxQty = bqRaw !== "" ? parseFloat(bqRaw) : (boxQtyStored || 0);
+    var boxCharge = (boxQty || 0) * BOX_PRICE;
+    var expected = invSum + boxCharge; // mattress lines + the invoice's single boxes line
     var html = '<b>Invoice ' + esc(inv) + '</b> — ' + n + (n === 1 ? ' item' : ' items') + ' saved';
     if (hasInv) html += ' · ' + money(invSum) + ' invoiced';
+    if (boxCharge > 0) html += ' + ' + money(boxCharge) + ' boxes (' + boxQty + '×£' + BOX_PRICE + ')';
     if (invTotal != null && !isNaN(invTotal)) {
-      var diff = Math.round((invTotal - invSum) * 100) / 100;
+      var diff = Math.round((invTotal - expected) * 100) / 100;
       html += (Math.abs(diff) < 0.005)
-        ? ' <span class="bn-ok">✓ balances ' + money(invTotal) + '</span>'
-        : ' <span class="bn-off">of ' + money(invTotal) + ' (' + (diff > 0 ? money(diff) + ' to go' : money(-diff) + ' over') + ')</span>';
+        ? ' <span class="bn-ok">= ' + money(expected) + ' ✓ balances</span>'
+        : ' <span class="bn-off">= ' + money(expected) + ' of ' + money(invTotal) + ' (' + (diff > 0 ? money(diff) + ' to go' : money(-diff) + ' over') + ')</span>';
     }
     el.innerHTML = html;
     el.hidden = false;
@@ -1157,24 +1170,28 @@
       if (g.invoice == null || g.items.length < 2) {
         return g.items.map(function (it) { return rowHtml(it.r, it.i, null); }).join("");
       }
-      var calcSum = 0, invSum = 0, mism = 0, invTotal = null, hasInv = false;
+      var calcSum = 0, invSum = 0, mism = 0, invTotal = null, hasInv = false, boxQty = null;
       g.items.forEach(function (it) {
         var r = it.r;
         if (r.calc != null) calcSum += Number(r.calc);
         if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
         if (r.calc != null && r.agreed != null && Number(r.calc) !== Number(r.agreed)) mism++;
         if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
+        if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty);
       });
       var n = g.items.length;
+      var boxCharge = (boxQty || 0) * BOX_PRICE;
+      var expected = invSum + boxCharge; // mattress lines + the invoice's boxes line
       var flag = mism > 0
         ? '<span class="gh-off">⚠ ' + mism + ' mismatch' + (mism > 1 ? 'es' : '') + '</span>'
         : '<span class="gh-ok">✓ all match</span>';
       var totalBit = '';
+      if (boxCharge > 0) totalBit += ' · +' + money(boxCharge) + ' boxes';
       if (invTotal != null && hasInv) {
-        var diff = Math.round((invTotal - invSum) * 100) / 100;
-        totalBit = (Math.abs(diff) < 0.005)
+        var diff = Math.round((invTotal - expected) * 100) / 100;
+        totalBit += (Math.abs(diff) < 0.005)
           ? ' · <span class="gh-ok">balances ' + money(invTotal) + '</span>'
-          : ' · <span class="gh-off">' + money(invSum) + ' of ' + money(invTotal) + '</span>';
+          : ' · <span class="gh-off">' + money(expected) + ' of ' + money(invTotal) + '</span>';
       }
       var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
@@ -1212,11 +1229,11 @@
 
   function exportCSV() {
     var arr = ordersCache; if (!arr.length) return;
-    var rows = [["Order", "Invoice #", "Invoice total", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
+    var rows = [["Order", "Invoice #", "Invoice total", "Boxes", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
     arr.forEach(function (r) {
       var items = (r.lines || []).map(function (l) { return l.name + (l.note ? " (" + l.note + ")" : "") + " = " + (l.val == null ? "POA" : l.val); }).join(" | ");
       var match = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? "MATCH" : "MISMATCH") : "";
-      rows.push([r.order, r.invoice || "", r.invoiceTotal == null ? "" : r.invoiceTotal, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
+      rows.push([r.order, r.invoice || "", r.invoiceTotal == null ? "" : r.invoiceTotal, r.boxQty == null ? "" : r.boxQty, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
         r.calc == null ? "POA" : r.calc, r.agreed == null ? "" : r.agreed,
         (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", match, items]);
     });
@@ -1474,6 +1491,8 @@
     sb.hidden = false;
     document.title = CATALOG.name + " — Mattress Price Calculator";
   }
+  // Boxes is a Mattressshire invoice line — hide the field on other calculators (Southern)
+  if (CATALOG.key !== "mattressshire" && CATALOG.key !== "combined") { var br = $("boxesRow"); if (br) br.hidden = true; }
   buildControls();
   buildExtras();
   initDnD();
@@ -1490,6 +1509,7 @@
   $("mbarSave").addEventListener("click", function () { saveQuote(false); });
   $("invoiceNo").addEventListener("input", updateBatchNote);
   $("invoiceTotal").addEventListener("input", updateBatchNote);
+  $("boxesQty").addEventListener("input", updateBatchNote);
   // Focused number inputs & selects hijack the mouse wheel (scrolling changes their value).
   // Blur the focused control on wheel so the page scrolls instead — the typed value is preserved.
   document.addEventListener("wheel", function () {
