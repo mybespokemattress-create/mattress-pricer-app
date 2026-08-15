@@ -214,6 +214,12 @@
   .order-link b { font-weight: 700; }
   .order-link .ol-x { position: absolute; top: 6px; right: 7px; background: none; border: 0; padding: 2px 6px; font-size: 13px; line-height: 1; color: var(--muted); cursor: pointer; border-radius: 6px; }
   .order-link .ol-x:hover { color: var(--ink); background: rgba(0,0,0,.07); }
+  /* order flags pulled from the order app (quoted price / awaiting supplier credit) */
+  .order-flags { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .oflag { padding: 9px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; border: 1px solid; color: var(--ink); }
+  .oflag b { font-weight: 800; }
+  .oflag.quote  { background: rgba(18,165,148,.12); border-color: var(--accent); }
+  .oflag.credit { background: rgba(224,168,0,.16); border-color: rgba(224,168,0,.65); }
   .order-code { margin-top: 12px; padding: 9px 12px; border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong); border-radius: 8px; background: var(--panel-2); font-size: 12.5px; line-height: 1.5; color: var(--body); }
   .order-code .ol-lab { display: block; text-transform: uppercase; font-size: 10.5px; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: 3px; }
   .order-code mark { background: #ffe08a; color: #6b4a00; font-weight: 800; padding: 0 2px; border-radius: 3px; }
@@ -444,6 +450,7 @@
           </div>
         </label>
         <div class="order-status" id="orderStatus"></div>
+        <div class="order-flags" id="orderFlags" hidden></div>
         <label class="fld" style="margin-top:14px;">
           <span class="lab">Invoiced Price £ <span class="hint">what the supplier charged, if it differs from calculated</span></span>
           <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
@@ -1106,7 +1113,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); setOrderLink(""); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
     if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; $("boxesQty").value = ""; }  // a batch (Save & Next) keeps the invoice # + total + boxes
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
@@ -1349,6 +1356,7 @@
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
     setDiagram(d.diagramUrl || "");
     setOrderLink(d.linkAttachment || "");
+    setOrderFlags(d);  // quoted-price / awaiting-credit notifications from the order app
     refreshSupplierCode();  // show the code only when it isn't already covered by the auto-resolved recipe chip (or when it carries a watch-word flag)
     updateQuoteHeader();
     dirty = true;
@@ -1376,6 +1384,27 @@
       var x = $("olX");
       if (x) x.addEventListener("click", function () { el.hidden = true; }); // dismiss once the link's been added to the price list
     }
+    else { el.hidden = true; el.innerHTML = ""; }
+  }
+
+  // Notifications pulled from the order app: a pre-agreed quoted price, and/or a supplier credit due.
+  // Both are optional — the banner only shows when the order app sends the flag.
+  function setOrderFlags(d) {
+    var el = $("orderFlags"); if (!el) return;
+    var out = [];
+    if (d && d.quotedFlag) {
+      var qp = (d.quotedPrice != null && d.quotedPrice !== "") ? money(Number(d.quotedPrice)) : "";
+      out.push('<div class="oflag quote">💬 <b>Quoted price agreed</b>' + (qp ? ' — <b>' + qp + '</b>' : '') +
+        (d.quotedNote ? ' <span style="color:var(--muted)">(' + esc(d.quotedNote) + ')</span>' : '') +
+        '. Use the quoted price, not the calculated.</div>');
+    }
+    if (d && d.awaitingCredit) {
+      var ca = (d.creditAmount != null && d.creditAmount !== "") ? money(Number(d.creditAmount)) : "";
+      out.push('<div class="oflag credit">⚠ <b>Supplier credit due</b>' + (ca ? ' — <b>' + ca + '</b>' : '') +
+        (d.creditAgreed ? ' <span style="color:var(--muted)">(agreed: ' + esc(d.creditAgreed) + ')</span>' : '') +
+        '. Reconcile this later.</div>');
+    }
+    if (out.length) { el.innerHTML = out.join(""); el.hidden = false; }
     else { el.hidden = true; el.innerHTML = ""; }
   }
   // Sum the foam-layer thicknesses in a supplier code (straight-quote inches) → total depth in inches.
