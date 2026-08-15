@@ -185,6 +185,14 @@
   .batchnote b { color: var(--ink); }
   .batchnote .bn-ok { color: var(--good); font-weight: 700; }
   .batchnote .bn-off { color: #c0392b; font-weight: 700; }
+  /* who-won verdict badge (invoice summary + saved-invoice header) */
+  .winbadge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-weight: 800; font-size: 12px; white-space: nowrap; }
+  .winbig { text-align: center; margin: 12px 0; padding: 13px; border-radius: 12px; }
+  .winbig .wl { font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+  .winbig .wa { font-size: 13.5px; margin-top: 3px; font-weight: 600; }
+  .win-you  { background: rgba(26,135,78,.14); color: var(--good); }
+  .win-them { background: rgba(192,57,43,.14); color: #c0392b; }
+  .win-even { background: var(--panel-2); color: var(--muted); }
 
   /* text / number inputs */
   .txtin { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 12px; }
@@ -632,14 +640,26 @@
   // Roll a whole invoice up from its saved mattress lines: mattresses (net) + the supplier's extra
   // line (Southern foam surcharge = % of mattresses, or Mattressshire boxes = qty x price) + VAT.
   function computeInvoice(items, boxQty) {
-    var mattressNet = 0, hasInv = false;
-    (items || []).forEach(function (r) { if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; } });
+    var mattressNet = 0, diffSum = 0, bothCount = 0, hasInv = false;
+    (items || []).forEach(function (r) {
+      if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; }
+      if (r.agreed != null && r.calc != null) { diffSum += Number(r.agreed) - Number(r.calc); bothCount++; } // invoiced - calculated
+    });
     var surcharge = INV.surchargePct ? mattressNet * INV.surchargePct : 0;
     var boxes = (INV.boxPrice && boxQty) ? boxQty * INV.boxPrice : 0;
     var net = mattressNet + surcharge + boxes;
     var vat = net * (INV.vatPct || 0);
-    return { count: (items || []).length, hasInv: hasInv, mattressNet: mattressNet,
+    return { count: (items || []).length, hasInv: hasInv, mattressNet: mattressNet, diffSum: diffSum, bothCount: bothCount,
              surcharge: surcharge, boxes: boxes, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
+  }
+
+  // Who came out ahead on an invoice's price discrepancies. diffSum = sum(invoiced - calculated):
+  // negative → you were undercharged overall (you win); positive → overcharged (supplier wins).
+  function winnerOf(diffSum) {
+    var d = Math.round((diffSum || 0) * 100) / 100;
+    if (Math.abs(d) < 0.005) return { cls: "win-even", who: "All square",       amount: "prices match" };
+    if (d < 0)               return { cls: "win-you",  who: "Winner: Angelo",   amount: money(-d) + " in your favour", chip: "🏆 Angelo +" + money(-d) };
+    return                          { cls: "win-them", who: "Winner: Supplier", amount: money(d) + " in their favour", chip: "Supplier +" + money(d) };
   }
   var SKUS = CATALOG.skus || [];
 
@@ -1200,9 +1220,11 @@
           ? ' · <span class="gh-ok">balances</span>'
           : ' · <span class="gh-off">vs ' + money(invTotal) + '</span>';
       }
+      var w = winnerOf(c.diffSum);
+      var winChip = (c.bothCount && Math.abs(c.diffSum) >= 0.005) ? ' <span class="winbadge ' + w.cls + '">' + w.chip + '</span>' : '';
       var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
-        '<span class="gh-meta">· ' + n + ' items' + totalBit + ' · </span>' + flag +
+        '<span class="gh-meta">· ' + n + ' items' + totalBit + ' · </span>' + flag + winChip +
         '</td></tr>';
       return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
     }).join("");
@@ -1455,10 +1477,13 @@
     } else {
       checkHtml = '<div class="dm-sub" style="margin-top:12px">Enter the Invoice total to check it against this.</div>';
     }
+    var w = winnerOf(c.diffSum);
+    var winBig = c.bothCount ? '<div class="winbig ' + w.cls + '"><div class="wl">' + w.who + '</div><div class="wa">' + w.amount + '</div></div>' : '';
     $("invoiceCard").innerHTML =
       '<button class="dm-close" id="invClose" type="button" aria-label="Close">✕</button>' +
       '<div class="dm-order">Invoice ' + esc(inv) + '</div>' +
       '<div class="dm-sub" style="margin-bottom:6px">' + c.count + ' order' + (c.count === 1 ? '' : 's') + ' · ' + esc(CATALOG.name || "") + '</div>' +
+      winBig +
       '<div class="dm-sec-h">Orders</div>' + lines +
       (extraLine ? '<div class="dm-sec-h">Charges</div>' + extraLine : '') +
       '<div style="margin-top:8px"></div>' + netLine + vatLine +
