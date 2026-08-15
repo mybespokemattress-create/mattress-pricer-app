@@ -181,6 +181,12 @@
   @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(18,165,148,.55); } 100% { box-shadow: 0 0 0 9px rgba(18,165,148,0); } }
   .btn.pulse { animation: pulseRing .7s ease-out 2; }
   @media (prefers-reduced-motion: reduce) { .btn.pulse { animation: none; } }
+  .btn.savenext { background: var(--accent-wash); color: var(--accent-deep); border: 1px solid var(--accent); }
+  .btn.savenext:hover { background: var(--accent); color: #04201c; }
+  .batchnote { margin-top: 12px; padding: 9px 11px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); font-size: 12.5px; color: var(--body); line-height: 1.5; }
+  .batchnote b { color: var(--ink); }
+  .batchnote .bn-ok { color: var(--good); font-weight: 700; }
+  .batchnote .bn-off { color: #c0392b; font-weight: 700; }
 
   /* text / number inputs */
   .txtin { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 12px; }
@@ -262,6 +268,15 @@
   table.saved-t th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
   table.saved-t td.r, table.saved-t th.r { text-align: right; font-variant-numeric: tabular-nums; }
   table.saved-t tr:last-child td { border-bottom: 0; }
+  /* invoice batch grouping */
+  .saved-t tr.grouphead td { background: var(--panel-2); border-bottom: 1px solid var(--line-strong); cursor: pointer; white-space: normal; }
+  .saved-t tr.grouphead:hover td { background: var(--accent-wash); }
+  .gh-caret { display: inline-block; width: 15px; color: var(--muted); }
+  .gh-inv { font-weight: 800; color: var(--ink); }
+  .gh-meta { color: var(--muted); }
+  .gh-ok { color: var(--good); font-weight: 700; }
+  .gh-off { color: #c0392b; font-weight: 700; }
+  .saved-t tr.memberrow td:first-child { padding-left: 26px; }
   .delta.pos { color: #c0392b; font-weight: 700; }
   .delta.neg { color: var(--good); font-weight: 700; }
   .rowdel { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
@@ -498,12 +513,18 @@
       <div class="agreed">
         <label for="agreed">Invoiced Price £ <span class="hint">override if the actual price differs</span></label>
         <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
-        <label for="invoiceNo" class="agreed-l2">Invoice number <span class="hint">optional — shown in the log</span></label>
+        <label for="invoiceNo" class="agreed-l2">Invoice number <span class="hint">stays set while you work an invoice</span></label>
         <input type="text" id="invoiceNo" class="txtin" placeholder="e.g. INV-1234" autocomplete="off">
+        <label for="invoiceTotal" class="agreed-l2">Invoice total £ <span class="hint">optional — the invoice's grand total, to reconcile</span></label>
+        <input type="number" id="invoiceTotal" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—" autocomplete="off">
+        <div class="batchnote" id="batchNote" hidden></div>
       </div>
       <div class="actions two">
         <button class="btn primary" id="saveBtn" type="button">Save Order</button>
         <button class="btn ghost" id="clearBtn" type="button">Clear</button>
+      </div>
+      <div class="actions">
+        <button class="btn savenext" id="saveNextBtn" type="button">Save &amp; Next order →</button>
       </div>
       <div class="actions two">
         <button class="btn ghost" id="copyBtn" type="button">Copy</button>
@@ -991,15 +1012,17 @@
     return "None";
   }
 
-  function saveQuote() {
-    if (!window.__lastQuote) { flash($("saveBtn"), "Complete the order first"); flash($("mbarSave"), "Complete order"); return; }
+  function saveQuote(andNext) {
+    var btn = andNext ? $("saveNextBtn") : $("saveBtn");
+    if (!window.__lastQuote) { flash(btn, "Complete the order first"); flash($("mbarSave"), "Complete order"); return; }
     var order = $("orderNo").value.trim();
-    if (!order) { $("orderNo").classList.add("err"); $("orderNo").scrollIntoView({ behavior: "smooth", block: "center" }); $("orderNo").focus(); flash($("saveBtn"), "Enter order # first"); flash($("mbarSave"), "Order # needed"); return; }
+    if (!order) { $("orderNo").classList.add("err"); $("orderNo").scrollIntoView({ behavior: "smooth", block: "center" }); $("orderNo").focus(); flash(btn, "Enter order # first"); flash($("mbarSave"), "Order # needed"); return; }
     $("orderNo").classList.remove("err");
     var q = window.__lastQuote;
     var calc = q.r.poa ? null : q.r.total;
     var av = $("agreed").value.trim();
     var agreed = av === "" ? calc : parseFloat(av);
+    var itRaw = $("invoiceTotal").value.trim();
     var rec = {
       order: order,
       ts: new Date().toISOString(),
@@ -1008,6 +1031,7 @@
       lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
       calc: calc, agreed: (isNaN(agreed) ? null : agreed),
       invoice: $("invoiceNo").value.trim() || null,
+      invoiceTotal: itRaw === "" ? null : parseFloat(itRaw),
       diagram: currentDiagram || null
     };
     var save = apiOn
@@ -1015,14 +1039,16 @@
       : (function () { var a = loadLocal(); a.unshift(rec); saveLocal(a); return Promise.resolve(); })();
     save.then(function () {
       dirty = false; $("clearErr").hidden = true;
-      flash($("saveBtn"), "Saved ✓"); flash($("mbarSave"), "Saved ✓");
+      flash(btn, "Saved ✓"); flash($("mbarSave"), "Saved ✓");
       return refreshOrders();
+    }).then(function () {
+      if (andNext) clearForm(true); // keep the invoice fields set, clear the rest, ready for the next order
     }).catch(function () {
-      flash($("saveBtn"), "Save failed — retry"); flash($("mbarSave"), "Save failed");
+      flash(btn, "Save failed — retry"); flash($("mbarSave"), "Save failed");
     });
   }
 
-  function clearForm() {
+  function clearForm(keepInvoice) {
     if (dirty && window.__lastQuote) {
       $("clearErr").hidden = false;
       var s = $("saveBtn"); s.classList.add("pulse"); setTimeout(function () { s.classList.remove("pulse"); }, 1500);
@@ -1033,7 +1059,8 @@
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
     setDiagram(""); setOrderLink(""); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
-    $("agreed").value = ""; $("invoiceNo").value = "";
+    $("agreed").value = "";
+    if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; }  // a batch (Save & Next) keeps the invoice # + total
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
     state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
@@ -1048,42 +1075,122 @@
       row.classList.remove("active");
     });
     render();
+    updateBatchNote();
     $("orderNo").focus();
+  }
+
+  // Running summary for the invoice currently being worked (shown under the invoice fields).
+  function updateBatchNote() {
+    var el = $("batchNote"); if (!el) return;
+    var inv = ($("invoiceNo").value || "").trim();
+    if (!inv) { el.hidden = true; el.innerHTML = ""; return; }
+    var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
+    var n = items.length, invSum = 0, hasInv = false, invTotal = null;
+    items.forEach(function (r) {
+      if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
+      if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
+    });
+    var itRaw = ($("invoiceTotal").value || "").trim();
+    if (itRaw !== "") invTotal = parseFloat(itRaw);
+    var html = '<b>Invoice ' + esc(inv) + '</b> — ' + n + (n === 1 ? ' item' : ' items') + ' saved';
+    if (hasInv) html += ' · ' + money(invSum) + ' invoiced';
+    if (invTotal != null && !isNaN(invTotal)) {
+      var diff = Math.round((invTotal - invSum) * 100) / 100;
+      html += (Math.abs(diff) < 0.005)
+        ? ' <span class="bn-ok">✓ balances ' + money(invTotal) + '</span>'
+        : ' <span class="bn-off">of ' + money(invTotal) + ' (' + (diff > 0 ? money(diff) + ' to go' : money(-diff) + ' over') + ')</span>';
+    }
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+
+  // One saved-order row. groupKey = null for a loose row, or the group index (member row, starts hidden).
+  function rowHtml(r, i, groupKey) {
+    var calc = r.calc == null ? "POA" : money(r.calc);
+    // Invoiced price: green when it matches the calculated price, red when it doesn't (mispriced)
+    var agreedCell = "—";
+    if (r.agreed != null) {
+      agreedCell = (r.calc == null)
+        ? money(r.agreed)
+        : '<span class="' + (Number(r.agreed) === Number(r.calc) ? 'pmatch' : 'pmiss') + '">' + money(r.agreed) + '</span>';
+    }
+    var deltaCell = "—";
+    if (r.calc != null && r.agreed != null) {
+      var d = Number(r.agreed) - Number(r.calc), cls = d > 0 ? "pos" : (d < 0 ? "neg" : ""), sign = d > 0 ? "+" : "";
+      deltaCell = d === 0 ? money(0) : '<span class="delta ' + cls + '">' + sign + money(d) + '</span>';
+    }
+    var when = new Date(r.ts).toLocaleString();
+    var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
+    var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
+    var member = groupKey != null;
+    return '<tr class="srow' + (member ? ' memberrow" data-grp="' + groupKey + '" hidden' : '"') + ' data-i="' + i + '" title="Click to view details">' +
+      '<td><b>' + esc(r.order) + '</b></td>' +
+      '<td>' + inv + '</td>' +
+      '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
+      '<td class="r">' + calc + '</td>' +
+      '<td class="r">' + agreedCell + '</td>' +
+      '<td class="r">' + deltaCell + '</td>' +
+      '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
+      '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
+      '</tr>';
   }
 
   function renderSaved() {
     var arr = ordersCache, card = $("savedCard");
-    if (!arr.length) { card.style.display = "none"; return; }
+    if (!arr.length) { card.style.display = "none"; updateBatchNote(); return; }
     card.style.display = "";
     $("savedCount").textContent = "(" + arr.length + ")";
-    $("savedBody").innerHTML = arr.map(function (r, i) {
-      var calc = r.calc == null ? "POA" : money(r.calc);
-      // Invoiced price: green when it matches the calculated price, red when it doesn't (mispriced)
-      var agreedCell = "—";
-      if (r.agreed != null) {
-        agreedCell = (r.calc == null)
-          ? money(r.agreed)
-          : '<span class="' + (Number(r.agreed) === Number(r.calc) ? 'pmatch' : 'pmiss') + '">' + money(r.agreed) + '</span>';
+
+    // group consecutive-by-invoice, preserving the newest-first order
+    var groups = [], byInv = {};
+    arr.forEach(function (r, i) {
+      var key = (r.invoice && String(r.invoice).trim()) ? String(r.invoice).trim() : null;
+      if (key == null) { groups.push({ invoice: null, items: [{ r: r, i: i }] }); return; }
+      if (!byInv[key]) { byInv[key] = { invoice: key, items: [] }; groups.push(byInv[key]); }
+      byInv[key].items.push({ r: r, i: i });
+    });
+
+    $("savedBody").innerHTML = groups.map(function (g, gi) {
+      // loose rows: no invoice, or a lone item (batches are 2+)
+      if (g.invoice == null || g.items.length < 2) {
+        return g.items.map(function (it) { return rowHtml(it.r, it.i, null); }).join("");
       }
-      var deltaCell = "—";
-      if (r.calc != null && r.agreed != null) {
-        var d = Number(r.agreed) - Number(r.calc), cls = d > 0 ? "pos" : (d < 0 ? "neg" : ""), sign = d > 0 ? "+" : "";
-        deltaCell = d === 0 ? money(0) : '<span class="delta ' + cls + '">' + sign + money(d) + '</span>';
+      var calcSum = 0, invSum = 0, mism = 0, invTotal = null, hasInv = false;
+      g.items.forEach(function (it) {
+        var r = it.r;
+        if (r.calc != null) calcSum += Number(r.calc);
+        if (r.agreed != null) { invSum += Number(r.agreed); hasInv = true; }
+        if (r.calc != null && r.agreed != null && Number(r.calc) !== Number(r.agreed)) mism++;
+        if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
+      });
+      var n = g.items.length;
+      var flag = mism > 0
+        ? '<span class="gh-off">⚠ ' + mism + ' mismatch' + (mism > 1 ? 'es' : '') + '</span>'
+        : '<span class="gh-ok">✓ all match</span>';
+      var totalBit = '';
+      if (invTotal != null && hasInv) {
+        var diff = Math.round((invTotal - invSum) * 100) / 100;
+        totalBit = (Math.abs(diff) < 0.005)
+          ? ' · <span class="gh-ok">balances ' + money(invTotal) + '</span>'
+          : ' · <span class="gh-off">' + money(invSum) + ' of ' + money(invTotal) + '</span>';
       }
-      var when = new Date(r.ts).toLocaleString();
-      var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
-      var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
-      return '<tr class="srow" data-i="' + i + '" title="Click to view details">' +
-        '<td><b>' + esc(r.order) + '</b></td>' +
-        '<td>' + inv + '</td>' +
-        '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
-        '<td class="r">' + calc + '</td>' +
-        '<td class="r">' + agreedCell + '</td>' +
-        '<td class="r">' + deltaCell + '</td>' +
-        '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
-        '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
-        '</tr>';
+      var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
+        '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
+        '<span class="gh-meta">· ' + n + ' items · Calc ' + money(calcSum) +
+        (hasInv ? ' · Invoiced ' + money(invSum) : '') + totalBit + ' · </span>' + flag +
+        '</td></tr>';
+      return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
     }).join("");
+
+    // expand/collapse a batch
+    Array.prototype.slice.call($("savedBody").querySelectorAll("tr.grouphead")).forEach(function (h) {
+      h.addEventListener("click", function () {
+        var open = h.classList.toggle("open");
+        h.querySelector(".gh-caret").textContent = open ? "▾" : "▸";
+        Array.prototype.slice.call($("savedBody").querySelectorAll('tr.memberrow[data-grp="' + h.dataset.grp + '"]'))
+          .forEach(function (m) { m.hidden = !open; });
+      });
+    });
     Array.prototype.slice.call($("savedBody").querySelectorAll(".rowdel")).forEach(function (b) {
       b.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -1098,15 +1205,16 @@
     Array.prototype.slice.call($("savedBody").querySelectorAll(".srow")).forEach(function (tr) {
       tr.addEventListener("click", function () { openDetail(parseInt(tr.dataset.i, 10)); });
     });
+    updateBatchNote();
   }
 
   function exportCSV() {
     var arr = ordersCache; if (!arr.length) return;
-    var rows = [["Order", "Invoice #", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
+    var rows = [["Order", "Invoice #", "Invoice total", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
     arr.forEach(function (r) {
       var items = (r.lines || []).map(function (l) { return l.name + (l.note ? " (" + l.note + ")" : "") + " = " + (l.val == null ? "POA" : l.val); }).join(" | ");
       var match = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? "MATCH" : "MISMATCH") : "";
-      rows.push([r.order, r.invoice || "", new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
+      rows.push([r.order, r.invoice || "", r.invoiceTotal == null ? "" : r.invoiceTotal, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
         r.calc == null ? "POA" : r.calc, r.agreed == null ? "" : r.agreed,
         (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", match, items]);
     });
@@ -1373,10 +1481,13 @@
     if (!renderPrintDoc(currentQuoteForPrint())) { flash($("printBtn"), "Finish the quote first"); return; }
     window.print();
   });
-  $("saveBtn").addEventListener("click", saveQuote);
-  $("clearBtn").addEventListener("click", clearForm);
-  $("discardBtn").addEventListener("click", function () { dirty = false; clearForm(); }); // clear without saving
-  $("mbarSave").addEventListener("click", saveQuote);
+  $("saveBtn").addEventListener("click", function () { saveQuote(false); });
+  $("saveNextBtn").addEventListener("click", function () { saveQuote(true); }); // batch flow: save, keep invoice, clear, next
+  $("clearBtn").addEventListener("click", function () { clearForm(false); });
+  $("discardBtn").addEventListener("click", function () { dirty = false; clearForm(false); }); // clear without saving
+  $("mbarSave").addEventListener("click", function () { saveQuote(false); });
+  $("invoiceNo").addEventListener("input", updateBatchNote);
+  $("invoiceTotal").addEventListener("input", updateBatchNote);
   $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("exportBtn").addEventListener("click", exportCSV);
   $("wipeBtn").addEventListener("click", wipeSaved);
