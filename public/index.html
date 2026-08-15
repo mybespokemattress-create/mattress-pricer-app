@@ -306,6 +306,17 @@
   .gchip.primary { background: var(--accent); color: #04201c; border-color: transparent; }
   .guide-item p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--body); }
   .guide-item p strong { color: var(--ink); }
+  .guide-d summary { cursor: pointer; font-size: 18px; font-weight: 800; color: var(--ink); list-style: none; display: flex; align-items: center; gap: 9px; }
+  .guide-d summary::-webkit-details-marker { display: none; }
+  .guide-d summary::before { content: "▸"; color: var(--accent); font-size: 13px; }
+  .guide-d[open] summary::before { content: "▾"; }
+  .guide-d:not([open]) .guide-body { display: none; } /* guarantee collapse even where native <details> styling is missing */
+  .guide-d summary .guide-hint { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .guide-body { margin-top: 16px; }
+  .guide-body .lead { margin: 0 0 4px; }
+  .guide-sec { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent-deep); font-weight: 800; margin: 22px 0 11px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  .guide-p { margin: 0 0 10px; font-size: 13px; line-height: 1.55; color: var(--body); }
+  .guide-p strong, .guide-p b { color: var(--ink); }
 
   /* ===== mobile sticky action bar ===== */
   .mbar { display: none; }
@@ -557,26 +568,46 @@
   </div>
 
   <div class="card guide">
-    <h2>How to use this tool</h2>
-    <p class="lead">Working an invoice: set the <b>Invoice number</b>, then for each line enter the <b>Order number</b> and the <b>Invoiced Price</b> the supplier charged. Then pick the <b>foam recipe</b> (choose the exact one if it comes in two), the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The calculated price builds on the right, next to the optional <b>Invoice total</b> for reconciling the whole invoice. Then use the buttons below the price:</p>
-    <div class="guide-grid">
-      <div class="guide-item">
-        <span class="gchip primary">Save Order</span>
-        <p><strong>Saves this order to the Saved Orders log at the bottom of the page.</strong> An order number is required first. It records the mattress, every charge, the calculated and invoiced price, the invoice number and the date — so any order can be checked back later.</p>
+    <details class="guide-d">
+      <summary>How to use this tool <span class="guide-hint">— tap to open</span></summary>
+      <div class="guide-body">
+        <p class="lead guide-p">Work through <b>one supplier invoice at a time</b>: set the invoice number once, then run each order on it through the calculator, checking what the supplier charged against what it should be. It auto-fills as much as it can from the order.</p>
+
+        <div class="guide-sec">1 · Invoice &amp; order</div>
+        <p class="guide-p"><b>Invoice number</b> — set it once; it stays put while you work the whole invoice. <br>
+        <b>Order number</b> — type or pick it and the tool pulls the order in: foam recipe, supplier code, depth, size, shape diagram and link/join all fill themselves from your order app. <br>
+        <b>Invoiced Price</b> — what the supplier actually charged for this line. Leave it blank if it matches the calculated price.</p>
+
+        <div class="guide-sec">2 · Pricing (mostly automatic)</div>
+        <p class="guide-p"><b>Foam recipe</b> — matched from the order's supplier code and shown as a chip; hit <b>Change</b> to override, or pick it by hand. <br>
+        <b>Supplier code &amp; depth</b> — filled from the code; watch for the amber <b>tufting</b> flag on Imperial. <br>
+        <b>Size</b> — worked out from the order's A &amp; B measurements. <br>
+        <b>Finishing &amp; extras</b> — drag <span class="g">⠿</span> to reorder; the <b>Link / join</b> reminder sticks to the top as you scroll (✕ to dismiss once applied). <br>
+        <b>Carriage</b> — courier or manual.</p>
+
+        <div class="guide-sec">3 · Banners you may see</div>
+        <p class="guide-p"><b>💬 Quoted price agreed</b> (bespoke jobs) — the calculator can't price these, so the agreed quote <em>is</em> the price. No recipe needed: just enter what the supplier invoiced and Save. <br>
+        <b>⚠ Supplier credit due</b> — a credit to reconcile later. <br>
+        <b>Link / join</b> and <b>tufting</b> — build details the drawing alone doesn't show.</p>
+
+        <div class="guide-sec">4 · Check &amp; reconcile</div>
+        <p class="guide-p">In the log, the <b>Invoiced</b> price shows <span style="color:var(--good);font-weight:700">green</span> when it matches the calculated (or quoted) price and <span style="color:#c0392b;font-weight:700">red</span> when it doesn't. <br>
+        Enter the <b>Invoice total</b> (the gross figure inc VAT) and the running note tells you if the whole invoice balances — it adds the supplier's extra line (<b>Southern:</b> automatic 12% foam surcharge · <b>Mattressshire:</b> boxes at £8 each) plus 20% VAT. <br>
+        <b>🧮 Calculate invoice</b> lays the whole thing out like the paper invoice — every line, the extra, net, VAT, total — and shows a <b>Winner</b> verdict: whether you or the supplier came out ahead on the price differences, and by how much.</p>
+
+        <div class="guide-sec">Buttons</div>
+        <div class="guide-grid">
+          <div class="guide-item"><span class="gchip primary">Save &amp; Next</span><p><strong>The one you'll use most.</strong> Saves the order and jumps straight to the next one, keeping the invoice number set. No re-typing, no clearing.</p></div>
+          <div class="guide-item"><span class="gchip">Save Order</span><p>Saves the order but leaves the form as-is so you can review it.</p></div>
+          <div class="guide-item"><span class="gchip">Clear</span><p>Empties the form to start a fresh invoice. Blocked until the current order is saved — or use <strong>discard it</strong> to clear an entry without saving. Never deletes saved orders.</p></div>
+          <div class="guide-item"><span class="gchip">Copy</span><p>Copies the quote as text to paste into an email or message.</p></div>
+          <div class="guide-item"><span class="gchip">Print</span><p>Prints just the quote (or “Save as PDF”).</p></div>
+        </div>
+
+        <div class="guide-sec">Saved Orders (bottom of the page)</div>
+        <p class="guide-p">Every saved order lands here, <b>grouped under its invoice</b>. Click an invoice header to expand its lines; the header shows the item count, net &amp; inc-VAT totals, whether it <b>balances</b>, how many prices <b>mismatch</b>, and the <b>🏆 Winner</b> chip. Click any row for the full breakdown, or <b>Export CSV</b> for your records. Orders are shared between you and the calculator, and survive a refresh.</p>
       </div>
-      <div class="guide-item">
-        <span class="gchip">Clear</span>
-        <p><strong>Empties the form for the next order</strong> — resets the build, size, depth, extras and price override. You must <strong>Save</strong> the current order first: Clear is blocked and shows a warning until the order is saved — or, if the entry is wrong, use <strong>discard it</strong> in that warning to clear without saving. It never deletes anything already saved.</p>
-      </div>
-      <div class="guide-item">
-        <span class="gchip">Copy</span>
-        <p><strong>Copies the quote as text</strong> to paste into an email or message. Nothing is saved.</p>
-      </div>
-      <div class="guide-item">
-        <span class="gchip">Print</span>
-        <p><strong>Prints just the quote</strong> (form hidden). Use your printer, or choose “Save as PDF” to keep a copy.</p>
-      </div>
-    </div>
+    </details>
   </div>
 
   <div class="card" id="savedCard" style="display:none; margin-top:22px;">
