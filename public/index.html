@@ -423,8 +423,12 @@
     <!-- CONFIG -->
     <div class="card config">
       <div class="sec">
-        <h2><span class="step">#</span> Order</h2>
-        <label class="fld" style="margin-bottom:0;">
+        <h2><span class="step">#</span> Invoice &amp; order</h2>
+        <label class="fld">
+          <span class="lab">Invoice number <span class="hint">stays set while you work an invoice</span></span>
+          <input type="text" id="invoiceNo" class="txtin" placeholder="e.g. INV-1234" autocomplete="off">
+        </label>
+        <label class="fld" style="margin-top:14px; margin-bottom:0;">
           <span class="lab">Order number <span class="hint">(required to save)</span></span>
           <div class="ac-wrap">
             <input type="text" id="orderNo" class="txtin" placeholder="CARA1234" autocomplete="off">
@@ -432,6 +436,10 @@
           </div>
         </label>
         <div class="order-status" id="orderStatus"></div>
+        <label class="fld" style="margin-top:14px;">
+          <span class="lab">Invoiced Price £ <span class="hint">what the supplier charged, if it differs from calculated</span></span>
+          <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
+        </label>
       </div>
 
       <div class="sec">
@@ -509,11 +517,7 @@
         <div class="tnote" id="totalNote"></div>
       </div>
       <div class="agreed">
-        <label for="agreed">Invoiced Price £ <span class="hint">override if the actual price differs</span></label>
-        <input type="number" id="agreed" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—">
-        <label for="invoiceNo" class="agreed-l2">Invoice number <span class="hint">stays set while you work an invoice</span></label>
-        <input type="text" id="invoiceNo" class="txtin" placeholder="e.g. INV-1234" autocomplete="off">
-        <label for="invoiceTotal" class="agreed-l2">Invoice total £ <span class="hint">optional — the invoice's grand total, to reconcile</span></label>
+        <label for="invoiceTotal">Invoice total £ <span class="hint">optional — the whole invoice's grand total, to reconcile</span></label>
         <input type="number" id="invoiceTotal" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—" autocomplete="off">
         <div class="batchnote" id="batchNote" hidden></div>
       </div>
@@ -534,7 +538,7 @@
 
   <div class="card guide">
     <h2>How to use this tool</h2>
-    <p class="lead">Enter the <b>Order number</b>, pick the <b>foam recipe</b> (choose the exact one if it comes in two), then the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The price builds on the right. Enter the <b>Invoiced Price</b> (and optional <b>Invoice number</b>) if the actual figure differs, then use the buttons below the price:</p>
+    <p class="lead">Working an invoice: set the <b>Invoice number</b>, then for each line enter the <b>Order number</b> and the <b>Invoiced Price</b> the supplier charged. Then pick the <b>foam recipe</b> (choose the exact one if it comes in two), the <b>depth</b>, <b>size</b>, any <b>finishing extras</b>, and the <b>carriage</b>. The calculated price builds on the right, next to the optional <b>Invoice total</b> for reconciling the whole invoice. Then use the buttons below the price:</p>
     <div class="guide-grid">
       <div class="guide-item">
         <span class="gchip primary">Save Order</span>
