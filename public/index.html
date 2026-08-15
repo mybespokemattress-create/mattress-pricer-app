@@ -1027,6 +1027,7 @@
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
+  var currentQuoted = null; // { price, note } when the order carries a manually-agreed quoted (bespoke) price
 
   // Show the raw supplier code only when it ISN'T already represented by the auto-resolved recipe chip
   // (or when it carries a watch-word flag like tufting). Keeps section 2 to just "Depth" once the recipe is known.
@@ -1067,28 +1068,42 @@
 
   function saveQuote(andNext) {
     var btn = andNext ? $("saveNextBtn") : $("saveBtn");
-    if (!window.__lastQuote) { flash(btn, "Complete the order first"); flash($("mbarSave"), "Complete order"); return; }
+    var quoted = (currentQuoted && currentQuoted.price != null) ? currentQuoted.price : null; // bespoke agreed price
+    // need EITHER a completed calculator quote OR a bespoke quoted price
+    if (!window.__lastQuote && quoted == null) { flash(btn, "Complete the order first"); flash($("mbarSave"), "Complete order"); return; }
     var order = $("orderNo").value.trim();
     if (!order) { $("orderNo").classList.add("err"); $("orderNo").scrollIntoView({ behavior: "smooth", block: "center" }); $("orderNo").focus(); flash(btn, "Enter order # first"); flash($("mbarSave"), "Order # needed"); return; }
     $("orderNo").classList.remove("err");
     var q = window.__lastQuote;
-    var calc = q.r.poa ? null : q.r.total;
     var av = $("agreed").value.trim();
-    var agreed = av === "" ? calc : parseFloat(av);
     var itRaw = $("invoiceTotal").value.trim();
     var bqRaw = $("boxesQty").value.trim();
-    var rec = {
-      order: order,
-      ts: new Date().toISOString(),
-      model: q.sku.name + " · " + q.build.label, size: q.size.label, depth: q.depth,
-      carriage: carriageLabel(),
-      lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
-      calc: calc, agreed: (isNaN(agreed) ? null : agreed),
+    var common = {
+      order: order, ts: new Date().toISOString(), carriage: carriageLabel(),
       invoice: $("invoiceNo").value.trim() || null,
       invoiceTotal: itRaw === "" ? null : parseFloat(itRaw),
       boxQty: bqRaw === "" ? null : parseFloat(bqRaw),
       diagram: currentDiagram || null
     };
+    var rec;
+    if (quoted != null) {
+      // Bespoke / quoted-price order: calculator can't price it — the agreed QUOTE is the reference the invoice checks against.
+      var agreedQ = av === "" ? quoted : parseFloat(av);
+      rec = Object.assign({}, common, {
+        model: (q ? q.sku.name + " · " + q.build.label : "Bespoke") + " · quoted",
+        size: q ? q.size.label : "—", depth: q ? q.depth : "—",
+        lines: [{ name: "Quoted price (bespoke)", note: currentQuoted.note || "", val: quoted }],
+        calc: quoted, agreed: (isNaN(agreedQ) ? null : agreedQ)
+      });
+    } else {
+      var calc = q.r.poa ? null : q.r.total;
+      var agreed = av === "" ? calc : parseFloat(av);
+      rec = Object.assign({}, common, {
+        model: q.sku.name + " · " + q.build.label, size: q.size.label, depth: q.depth,
+        lines: q.r.lines.map(function (l) { return { name: l.name, note: l.note || "", val: l.val }; }),
+        calc: calc, agreed: (isNaN(agreed) ? null : agreed)
+      });
+    }
     var save = apiOn
       ? fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }).then(function (r) { if (!r.ok) throw 0; })
       : (function () { var a = loadLocal(); a.unshift(rec); saveLocal(a); return Promise.resolve(); })();
@@ -1113,7 +1128,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; codeDepthInches = null; updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; currentQuoted = null; codeDepthInches = null; updateQuoteHeader();
     $("agreed").value = "";
     if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; $("boxesQty").value = ""; }  // a batch (Save & Next) keeps the invoice # + total + boxes
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
@@ -1335,7 +1350,11 @@
     currentCode = d.supplierCode || ""; currentCodeWatch = null; // set before refreshBuild → refreshSupplierCode
     if (d.orderNumber) { $("orderNo").value = d.orderNumber; $("orderNo").classList.remove("err"); }
     var filled = [];
-    if (d.pricerSku) {
+    var isQuoted = d.quotedFlag && d.quotedPrice != null && d.quotedPrice !== "";
+    if (isQuoted) {
+      // bespoke / quoted order — the agreed quote overrides the calculator, so leave the recipe blank
+      state.sku = ""; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = ""; refreshBuild();
+    } else if (d.pricerSku) {
       var m = SKUS.filter(function (s) { return s.name.toLowerCase() === String(d.pricerSku).toLowerCase(); })[0];
       if (m) {
         state.sku = m.id; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = m.id;
@@ -1350,6 +1369,9 @@
         filled.push("SKU");
         if (buildAutoResolved) filled.push("recipe");
         if (state.depthIdx != null) filled.push("depth");
+      } else {
+        // recipe not recognised (bespoke) → clear any leftover recipe so the quote box isn't stale
+        state.sku = ""; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = ""; refreshBuild();
       }
     }
     var sz = sizeFromMeasurements(d.widthA, d.lengthB);
@@ -1357,16 +1379,22 @@
     setDiagram(d.diagramUrl || "");
     setOrderLink(d.linkAttachment || "");
     setOrderFlags(d);  // quoted-price / awaiting-credit notifications from the order app
+    currentQuoted = (d && d.quotedFlag && d.quotedPrice != null && d.quotedPrice !== "")
+      ? { price: Number(d.quotedPrice), note: d.quotedNote || "" } : null; // bespoke agreed price → save without a recipe
     refreshSupplierCode();  // show the code only when it isn't already covered by the auto-resolved recipe chip (or when it carries a watch-word flag)
     updateQuoteHeader();
     dirty = true;
     render();
     var st = $("orderStatus"); st.className = "order-status";
     var dims = (d.widthA != null || d.lengthB != null) ? (" · A " + (d.widthA != null ? d.widthA : "?") + "cm, B " + (d.lengthB != null ? d.lengthB : "?") + "cm") : "";
-    var todo = buildAutoResolved ? "Now set the depth and any extras." : "Now set the recipe, depth and any extras.";
-    st.innerHTML = filled.length
-      ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". " + todo
-      : "Order found, but nothing auto-filled — enter the details manually.";
+    if (isQuoted) {
+      st.innerHTML = "Bespoke quoted order" + dims + " — the agreed quote is the price. Enter what the supplier invoiced, then Save.";
+    } else {
+      var todo = buildAutoResolved ? "Now set the depth and any extras." : "Now set the recipe, depth and any extras.";
+      st.innerHTML = filled.length
+        ? "Pulled from order: " + filled.join(" + ") + " filled" + dims + ". " + todo
+        : "Order found, but nothing auto-filled — enter the details manually.";
+    }
   }
 
   function setDiagram(url) {
