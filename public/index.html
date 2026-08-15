@@ -1250,8 +1250,8 @@
     });
 
     $("savedBody").innerHTML = groups.map(function (g, gi) {
-      // loose rows: no invoice, or a lone item (batches are 2+)
-      if (g.invoice == null || g.items.length < 2) {
+      // loose rows only when there's no invoice number; any invoice (even a single order) gets a header
+      if (g.invoice == null) {
         return g.items.map(function (it) { return rowHtml(it.r, it.i, null); }).join("");
       }
       var mism = 0, invTotal = null, boxQty = null, itemsArr = [];
@@ -1277,7 +1277,7 @@
       var winChip = (c.bothCount && Math.abs(c.diffSum) >= 0.005) ? ' <span class="winbadge ' + w.cls + '">' + w.chip + '</span>' : '';
       var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
-        '<span class="gh-meta">· ' + n + ' items' + totalBit + ' · </span>' + flag + winChip +
+        '<span class="gh-meta">· ' + n + (n === 1 ? ' item' : ' items') + totalBit + ' · </span>' + flag + winChip +
         '</td></tr>';
       return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
     }).join("");
