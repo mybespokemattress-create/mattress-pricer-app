@@ -1490,6 +1490,12 @@
   $("mbarSave").addEventListener("click", function () { saveQuote(false); });
   $("invoiceNo").addEventListener("input", updateBatchNote);
   $("invoiceTotal").addEventListener("input", updateBatchNote);
+  // Focused number inputs & selects hijack the mouse wheel (scrolling changes their value).
+  // Blur the focused control on wheel so the page scrolls instead — the typed value is preserved.
+  document.addEventListener("wheel", function () {
+    var el = document.activeElement;
+    if (el && (el.type === "number" || el.tagName === "SELECT")) el.blur();
+  }, { passive: true });
   $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("exportBtn").addEventListener("click", exportCSV);
   $("wipeBtn").addEventListener("click", wipeSaved);
