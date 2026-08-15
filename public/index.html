@@ -681,7 +681,7 @@
     var mattressNet = 0, diffSum = 0, bothCount = 0, hasInv = false;
     (items || []).forEach(function (r) {
       if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; }
-      if (r.agreed != null && r.calc != null) { diffSum += Number(r.agreed) - Number(r.calc); bothCount++; } // invoiced - calculated
+      if (r.agreed != null && r.calc != null) { diffSum += priceDiff(r.agreed, r.calc); bothCount++; } // invoiced - calculated, to the penny
     });
     var surcharge = INV.surchargePct ? mattressNet * INV.surchargePct : 0;
     var boxes = (INV.boxPrice && boxQty) ? boxQty * INV.boxPrice : 0;
@@ -721,6 +721,8 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var money = function (n) { return "£" + Number(n).toFixed(2); };
+  // invoiced − calculated, rounded to the penny (kills floating-point noise like 274.75 vs 274.7500001)
+  var priceDiff = function (agreed, calc) { return Math.round((Number(agreed) - Number(calc)) * 100) / 100; };
   var sizeObj = function () { return SIZES.filter(function (s) { return s.key === state.size; })[0] || null; };
   var skuObj = function () { return SKUS.filter(function (s) { return s.id === state.sku; })[0] || null; };
   var buildObj = function () {
@@ -1206,17 +1208,15 @@
   // One saved-order row. groupKey = null for a loose row, or the group index (member row, starts hidden).
   function rowHtml(r, i, groupKey) {
     var calc = r.calc == null ? "POA" : money(r.calc);
-    // Invoiced price: green when it matches the calculated price, red when it doesn't (mispriced)
-    var agreedCell = "—";
+    // Invoiced price: green when it matches the calculated price (to the penny), red when it doesn't (mispriced)
+    var agreedCell = "—", deltaCell = "—";
     if (r.agreed != null) {
-      agreedCell = (r.calc == null)
-        ? money(r.agreed)
-        : '<span class="' + (Number(r.agreed) === Number(r.calc) ? 'pmatch' : 'pmiss') + '">' + money(r.agreed) + '</span>';
-    }
-    var deltaCell = "—";
-    if (r.calc != null && r.agreed != null) {
-      var d = Number(r.agreed) - Number(r.calc), cls = d > 0 ? "pos" : (d < 0 ? "neg" : ""), sign = d > 0 ? "+" : "";
-      deltaCell = d === 0 ? money(0) : '<span class="delta ' + cls + '">' + sign + money(d) + '</span>';
+      if (r.calc == null) { agreedCell = money(r.agreed); }
+      else {
+        var d = priceDiff(r.agreed, r.calc), matched = Math.abs(d) < 0.005;
+        agreedCell = '<span class="' + (matched ? 'pmatch' : 'pmiss') + '">' + money(r.agreed) + '</span>';
+        deltaCell = matched ? money(0) : '<span class="delta ' + (d > 0 ? 'pos' : 'neg') + '">' + (d > 0 ? '+' : '') + money(d) + '</span>';
+      }
     }
     var when = new Date(r.ts).toLocaleString();
     var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
@@ -1257,7 +1257,7 @@
       var mism = 0, invTotal = null, boxQty = null, itemsArr = [];
       g.items.forEach(function (it) {
         var r = it.r; itemsArr.push(r);
-        if (r.calc != null && r.agreed != null && Number(r.calc) !== Number(r.agreed)) mism++;
+        if (r.calc != null && r.agreed != null && Math.abs(priceDiff(r.agreed, r.calc)) >= 0.005) mism++;
         if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
         if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty);
       });
@@ -1313,7 +1313,7 @@
     var rows = [["Order", "Invoice #", "Invoice total", "Boxes", "Saved", "Product", "Size", "Depth", "Carriage", "Calculated", "Invoiced", "Difference", "Match", "Line items"]];
     arr.forEach(function (r) {
       var items = (r.lines || []).map(function (l) { return l.name + (l.note ? " (" + l.note + ")" : "") + " = " + (l.val == null ? "POA" : l.val); }).join(" | ");
-      var match = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? "MATCH" : "MISMATCH") : "";
+      var match = (r.calc != null && r.agreed != null) ? (Math.abs(priceDiff(r.agreed, r.calc)) < 0.005 ? "MATCH" : "MISMATCH") : "";
       rows.push([r.order, r.invoice || "", r.invoiceTotal == null ? "" : r.invoiceTotal, r.boxQty == null ? "" : r.boxQty, new Date(r.ts).toLocaleString(), r.model, r.size, r.depth, r.carriage || "",
         r.calc == null ? "POA" : r.calc, r.agreed == null ? "" : r.agreed,
         (r.calc != null && r.agreed != null) ? (Number(r.agreed) - Number(r.calc)) : "", match, items]);
@@ -1511,12 +1511,13 @@
     var calc = r.calc == null ? "POA" : money(r.calc);
     var agreed = r.agreed == null ? "—" : money(r.agreed);
     var deltaHtml = "";
-    if (r.calc != null && r.agreed != null) {
-      var d = Number(r.agreed) - Number(r.calc);
-      if (d !== 0) deltaHtml = '<div class="dm-line"><span class="n">Difference (invoiced − calculated)</span><span class="v" style="color:' + (d > 0 ? '#c0392b' : 'var(--good)') + '">' + (d > 0 ? '+' : '') + money(d) + '</span></div>';
+    var bothPrices = (r.calc != null && r.agreed != null);
+    var pd = bothPrices ? priceDiff(r.agreed, r.calc) : 0;
+    if (bothPrices && Math.abs(pd) >= 0.005) {
+      deltaHtml = '<div class="dm-line"><span class="n">Difference (invoiced − calculated)</span><span class="v" style="color:' + (pd > 0 ? '#c0392b' : 'var(--good)') + '">' + (pd > 0 ? '+' : '') + money(pd) + '</span></div>';
     }
     var invHtml = r.invoice ? '<div class="dm-sub" style="margin-top:2px">Invoice #' + esc(r.invoice) + '</div>' : '';
-    var agreedColor = (r.calc != null && r.agreed != null) ? (Number(r.agreed) === Number(r.calc) ? 'var(--good)' : '#c0392b') : '';
+    var agreedColor = bothPrices ? (Math.abs(pd) < 0.005 ? 'var(--good)' : '#c0392b') : '';
     var img = r.diagram ? '<div class="dm-img"><img src="' + esc(r.diagram) + '" alt="Order diagram"></div>' : '';
     $("detailCard").innerHTML =
       '<button class="dm-close" id="dmClose" type="button" aria-label="Close">✕</button>' +
