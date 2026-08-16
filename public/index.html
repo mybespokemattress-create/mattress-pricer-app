@@ -576,36 +576,37 @@
     <details class="guide-d">
       <summary>How to use this tool <span class="guide-hint">— tap to open</span></summary>
       <div class="guide-body">
-        <p class="lead guide-p">This tool works out the price of a bespoke mattress from its <b>foam recipe</b>, <b>size</b> and <b>depth</b>. Pull an order in and it fills most of it for you; the price builds on the right.</p>
+        <p class="lead guide-p">Work through <b>one invoice at a time</b>: set the invoice number once, then run each order on it through the calculator. It auto-fills as much as it can from the order.</p>
 
-        <div class="guide-sec">Pricing an order</div>
-        <p class="guide-p"><b>Order number</b> — type or pick it and the tool fills the foam recipe, supplier code, depth, size and shape diagram from the order. <br>
-        <b>Foam recipe</b> — matched from the supplier code and shown as a chip; hit <b>Change</b> to override, or pick it by hand. <br>
-        <b>Supplier code &amp; depth</b> — filled from the code (watch for the amber <b>tufting</b> flag on Imperial). <br>
+        <div class="guide-sec">1 · Invoice &amp; order</div>
+        <p class="guide-p"><b>Invoice number</b> — set it once; it stays put while you work the whole invoice. <br>
+        <b>Order number</b> — type or pick it and the tool pulls the order in: foam recipe, supplier code, depth, size, shape diagram and link/join all fill themselves from the order. <br>
+        <b>Invoiced Price</b> — what was charged for this line. Leave it blank if it matches the calculated price.</p>
+
+        <div class="guide-sec">2 · Pricing (mostly automatic)</div>
+        <p class="guide-p"><b>Foam recipe</b> — matched from the order's supplier code and shown as a chip; hit <b>Change</b> to override, or pick it by hand. <br>
+        <b>Supplier code &amp; depth</b> — filled from the code; watch for the amber <b>tufting</b> flag on Imperial. <br>
         <b>Size</b> — worked out from the order's A &amp; B measurements. <br>
         <b>Finishing &amp; extras</b> — drag <span class="g">⠿</span> to reorder; the <b>Link / join</b> reminder sticks to the top as you scroll (✕ to dismiss once applied). <br>
-        <b>Carriage</b> — courier or manual. <br>
-        The <b>price</b> appears on the right as you go.</p>
+        <b>Carriage</b> — courier or manual.</p>
+
+        <div class="guide-sec">3 · Banners you may see</div>
+        <p class="guide-p"><b>💬 Quoted price agreed</b> (bespoke jobs) — the calculator can't price these, so the agreed quote <em>is</em> the price. No recipe needed: just enter what was invoiced and Save. <br>
+        <b>⚠ Supplier credit due</b> — a credit to reconcile later. <br>
+        <b>Link / join</b> and <b>tufting</b> — build details the drawing alone doesn't show.</p>
+
+        <div class="guide-sec">4 · Check &amp; reconcile</div>
+        <p class="guide-p">In the log, the <b>Invoiced</b> price shows <span style="color:var(--good);font-weight:700">green</span> when it matches the calculated (or quoted) price and <span style="color:#c0392b;font-weight:700">red</span> when it doesn't. <br>
+        Enter the <b>Invoice total</b> (the gross figure inc VAT) and the running note tells you if the whole invoice balances — it adds the supplier's extra line (<b>Southern:</b> automatic 12% foam surcharge · <b>Mattressshire:</b> boxes at £8 each) plus 20% VAT. <br>
+        <b>🧮 Calculate invoice</b> lays the whole thing out like the paper invoice — every line, the extra, net, VAT and total.</p>
 
         <div class="guide-sec">Buttons</div>
         <div class="guide-grid">
-          <div class="guide-item"><span class="gchip">Clear</span><p>Empties the form ready for the next order.</p></div>
+          <div class="guide-item"><span class="gchip primary">Save &amp; Next</span><p><strong>The one you'll use most.</strong> Saves the order and jumps straight to the next one, keeping the invoice number set. No re-typing, no clearing.</p></div>
+          <div class="guide-item"><span class="gchip">Save Order</span><p>Saves the order but leaves the form as-is so you can review it.</p></div>
+          <div class="guide-item"><span class="gchip">Clear</span><p>Empties the form to start a fresh invoice. Blocked until the current order is saved — or use <strong>discard it</strong> to clear an entry without saving. Never deletes saved orders.</p></div>
           <div class="guide-item"><span class="gchip">Copy</span><p>Copies the quote as text to paste into an email or message.</p></div>
           <div class="guide-item"><span class="gchip">Print</span><p>Prints just the quote (or “Save as PDF”).</p></div>
-        </div>
-
-        <!-- owner-only: invoice-checking instructions (hidden in the supplier/locked view) -->
-        <div id="guideOwner" hidden>
-          <div class="guide-sec">Invoice checking</div>
-          <p class="guide-p">Work one invoice at a time. Set the <b>Invoice number</b> once (it stays put), enter the <b>Invoiced Price</b> the supplier charged on each line, and the log shows it <span style="color:var(--good);font-weight:700">green</span> when it matches the calculated (or quoted) price and <span style="color:#c0392b;font-weight:700">red</span> when it doesn't. <br>
-          <b>💬 Bespoke / quoted orders</b> — the calculator can't price these, so the agreed quote is the reference; just enter what was invoiced and Save. <br>
-          <b>⚠ Supplier credit due</b> — a credit to reconcile later. <br>
-          <b>Invoice total</b> — enter the gross figure (inc VAT) and the note tells you if the invoice balances: the lines + the supplier's extra (Southern 12% foam surcharge / Mattressshire £8 boxes) + 20% VAT. <br>
-          <b>🧮 Calculate invoice</b> — lays it out like the paper invoice (lines, extra, net, VAT, total) with a <b>🏆 Winner</b> verdict: you or the supplier, and by how much. <br>
-          <b>Save &amp; Next</b> — saves and jumps to the next order keeping the invoice set (the button you'll use most).</p>
-
-          <div class="guide-sec">Saved Orders</div>
-          <p class="guide-p">Saved orders group under their invoice — click a header to expand, click a row for the full breakdown. Headers show the item count, net &amp; inc-VAT totals, whether it <b>balances</b>, how many <b>mismatch</b>, and the <b>🏆 Winner</b> chip. <b>Export CSV</b> for your records.</p>
         </div>
       </div>
     </details>
@@ -1120,8 +1121,6 @@
       b.textContent = ownerUnlocked ? "🔓 Owner — lock" : "🔒 Owner login";
       b.classList.toggle("unlocked", ownerUnlocked);
     }
-    // the invoice-checking part of the guide is owner-only; the pricing part stays visible to all
-    var g = $("guideOwner"); if (g) g.hidden = isLocked();
   }
   function ownerToggle() {
     if (ownerUnlocked) { // re-lock this device
