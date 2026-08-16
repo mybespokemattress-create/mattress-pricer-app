@@ -572,7 +572,7 @@
     </div>
   </div>
 
-  <div class="card guide">
+  <div class="card guide" id="guideCard" hidden>
     <details class="guide-d">
       <summary>How to use this tool <span class="guide-hint">— tap to open</span></summary>
       <div class="guide-body">
@@ -1118,10 +1118,14 @@
       .then(updateOwnerBtn);
   }
   function updateOwnerBtn() {
-    var b = $("ownerBtn"); if (!b) return;
-    b.hidden = !gatingOn;
-    b.textContent = ownerUnlocked ? "🔓 Owner — lock" : "🔒 Owner login";
-    b.classList.toggle("unlocked", ownerUnlocked);
+    var b = $("ownerBtn");
+    if (b) {
+      b.hidden = !gatingOn;
+      b.textContent = ownerUnlocked ? "🔓 Owner — lock" : "🔒 Owner login";
+      b.classList.toggle("unlocked", ownerUnlocked);
+    }
+    // the "How to use" guide describes the owner-only reconciliation features → owner-only
+    var g = $("guideCard"); if (g) g.hidden = isLocked();
   }
   function ownerToggle() {
     if (ownerUnlocked) { // re-lock this device
