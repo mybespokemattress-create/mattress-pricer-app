@@ -7,6 +7,9 @@
  *   DATABASE_URL  — provided automatically by Railway's Postgres plugin
  *   PGSSL         — set to "true" only if you connect over Postgres' PUBLIC url
  *   PORT          — provided automatically by Railway
+ *   RESEND_API_KEY — switches on the "Check price" supplier email (see the check-price block below);
+ *                    optional companions EMAIL_FROM / EMAIL_FROM_NAME / EMAIL_REPLY_TO / EMAIL_SIGNOFF
+ *                    and CHECK_PRICE_TO / CHECK_PRICE_CC to override the built-in recipients
  */
 const express = require("express");
 const path = require("path");
@@ -149,6 +152,102 @@ app.delete("/api/orders/:id", async (req, res) => {
   if (OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE) return res.status(403).json({ error: "locked" }); // supplier can't delete
   try { await pool.query("DELETE FROM orders WHERE id = $1", [req.params.id]); res.json({ ok: true }); }
   catch (e) { console.error(e); res.status(500).json({ error: "delete failed" }); }
+});
+
+// ---- "Check price" supplier email (Resend HTTP API) ----
+// One click on a saved order emails THIS deployment's supplier asking for that order's price
+// breakdown. Owner-gated exactly like DELETE, so on the shared Southern tool only the owner can
+// fire it (Mattressshire has no OWNER_CODE — it's private to the owner already).
+// Mechanism copied from the quote app (shopify-mattress-quote-system/backend/services/email-sender.js):
+// a plain HTTPS POST to Resend, no SMTP. Set RESEND_API_KEY on the Railway service to switch it on —
+// the key is deliberately NOT defaulted in code the way OWNER_CODE is, because it's a real secret.
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const EMAIL_FROM = process.env.EMAIL_FROM || "quotes@mybespokemattress.com"; // verified Resend sender
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "My Bespoke Order";
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "hello@mybespokemattress.com"; // monitored inbox
+const EMAIL_SIGNOFF = process.env.EMAIL_SIGNOFF || "Angelo";
+
+// Who each supplier's price queries go to. Cc is the shared inbox that covers holidays/absence.
+const CHECK_PRICE_RECIPIENTS = {
+  southern:      { to: ["michele@southernfoam.co.uk"], cc: ["mbm@southernfoam.co.uk"] },
+  mattressshire: { to: ["mattressshire.wmltd@gmail.com"], cc: [] },
+};
+function envList(name) {
+  const raw = (process.env[name] || "").trim();
+  if (!raw) return null;
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+const recipients = CHECK_PRICE_RECIPIENTS[SUPPLIER] || { to: [], cc: [] };
+const CHECK_TO = envList("CHECK_PRICE_TO") || recipients.to;
+const CHECK_CC = envList("CHECK_PRICE_CC") || recipients.cc;
+const checkPriceEnabled = !!(RESEND_API_KEY && CHECK_TO.length);
+
+function isOwner(req) { return !OWNER_CODE || req.get("x-owner-code") === OWNER_CODE; }
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+async function sendViaResend({ to, cc, subject, html, text }) {
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: EMAIL_FROM_NAME + " <" + EMAIL_FROM + ">",
+      to: to,
+      cc: cc && cc.length ? cc : undefined,
+      reply_to: EMAIL_REPLY_TO,
+      subject: subject,
+      html: html,
+      text: text || undefined,
+    }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.message || JSON.stringify(data));
+  return data.id;
+}
+
+// Is the button available, and (owner only) who would it email?
+app.get("/api/check-price/enabled", (req, res) => {
+  if (!checkPriceEnabled || !isOwner(req)) return res.json({ enabled: false });
+  res.json({ enabled: true, to: CHECK_TO, cc: CHECK_CC });
+});
+
+app.post("/api/check-price", async (req, res) => {
+  if (!checkPriceEnabled) return res.status(503).json({ error: "email not configured" });
+  if (!isOwner(req)) return res.status(403).json({ error: "locked" });
+  const b = req.body || {};
+  const order = String(b.order || "").trim();
+  if (!order) return res.status(400).json({ error: "order number required" });
+  const invoice = String(b.invoice || "").trim();
+
+  const ref = invoice
+    ? "order " + escHtml(order) + " on invoice " + escHtml(invoice)
+    : "order " + escHtml(order);
+  const subject = "Price breakdown request — order " + order + (invoice ? " (invoice " + invoice + ")" : "");
+  const html =
+    '<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">' +
+    "<p>Hello,</p>" +
+    "<p>Please could you send me a price breakdown for " + ref + "</p>" +
+    "<p>Many thanks,<br>" + escHtml(EMAIL_SIGNOFF) + "</p>" +
+    "</div>";
+  const text = [
+    "Hello,",
+    "",
+    "Please could you send me a price breakdown for " +
+      (invoice ? "order " + order + " on invoice " + invoice : "order " + order),
+    "",
+    "Many thanks,",
+    EMAIL_SIGNOFF,
+  ].join("\n");
+
+  try {
+    const id = await sendViaResend({ to: CHECK_TO, cc: CHECK_CC, subject: subject, html: html, text: text });
+    console.log("check-price email sent for " + order + " -> " + CHECK_TO.join(", ") + " (" + id + ")");
+    res.json({ ok: true, id: id, to: CHECK_TO, cc: CHECK_CC });
+  } catch (e) {
+    console.error("check-price send failed:", e.message);
+    res.status(502).json({ error: "send failed" });
+  }
 });
 
 // ---- Order-app bridge (server-side; key + order-app URL never reach the browser) ----

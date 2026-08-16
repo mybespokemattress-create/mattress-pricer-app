@@ -292,12 +292,16 @@
   /* supplier (locked) view: withhold the reconciliation columns + hide delete controls */
   .owner-locked .col-calc, .owner-locked .col-diff { display: none; }
   .owner-locked .srow { cursor: default; }
-  .owner-locked .rowdel, .owner-locked #wipeBtn { display: none; }
+  .owner-locked .rowdel, .owner-locked .rowmail, .owner-locked #wipeBtn { display: none; }
   .lockbtn.unlocked { border-color: var(--accent); color: var(--accent-deep); }
   .delta.pos { color: #c0392b; font-weight: 700; }
   .delta.neg { color: var(--good); font-weight: 700; }
   .rowdel { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
   .rowdel:hover { color: #c0392b; }
+  /* ✉ ask the supplier for this order's price breakdown (owner only) */
+  .rowmail { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
+  .rowmail:hover { color: var(--accent-deep); }
+  .rowmail.sent { color: var(--good); }
 
   /* how-to guide */
   .guide { margin-top: 22px; padding: 20px 22px; }
@@ -1063,6 +1067,7 @@
   var OWNER_KEY = "mp-owner"; // owner passcode remembered on THIS device only
   var gatingOn = false, ownerUnlocked = false, ownerCode = null; // reconciliation gate (Southern only)
   function isLocked() { return gatingOn && !ownerUnlocked; } // supplier view: hide the discrepancy data
+  var checkPriceOn = false, checkPriceTo = [], checkPriceCc = []; // ✉ "ask the supplier for a price breakdown"
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
@@ -1126,7 +1131,7 @@
     if (ownerUnlocked) { // re-lock this device
       ownerUnlocked = false; ownerCode = null;
       try { localStorage.removeItem(OWNER_KEY); } catch (e) {}
-      updateOwnerBtn(); refreshOrders();
+      updateOwnerBtn(); initCheckPrice().then(refreshOrders);
       return;
     }
     var code = window.prompt("Owner passcode:");
@@ -1137,10 +1142,48 @@
         if (v && v.ok) {
           ownerUnlocked = true; ownerCode = code;
           try { localStorage.setItem(OWNER_KEY, code); } catch (e) {}
-          updateOwnerBtn(); refreshOrders();
+          updateOwnerBtn(); initCheckPrice().then(refreshOrders);
         } else { flash($("ownerBtn"), "Wrong passcode"); }
       })
       .catch(function () { flash($("ownerBtn"), "Try again"); });
+  }
+  // ✉ Check price — is the supplier email configured on this deployment, and who does it go to?
+  // The server only names the recipients to the owner, so this stays off in the supplier's view.
+  function initCheckPrice() {
+    return fetch("/api/check-price/enabled", { headers: ownerCode ? { "x-owner-code": ownerCode } : {} })
+      .then(function (r) { return r.ok ? r.json() : { enabled: false }; })
+      .then(function (j) {
+        checkPriceOn = !!(j && j.enabled);
+        checkPriceTo = (j && j.to) || []; checkPriceCc = (j && j.cc) || [];
+      })
+      .catch(function () { checkPriceOn = false; });
+  }
+  // Sends a real email to an outside supplier, so it always confirms first — naming the order and
+  // every recipient — and never fires on a stray click of the row.
+  function checkPrice(btn, row) {
+    var order = row && row.order ? String(row.order) : "";
+    if (!order) return;
+    var inv = (row.invoice && String(row.invoice).trim()) ? String(row.invoice).trim() : "";
+    var who = checkPriceTo.join(", ") + (checkPriceCc.length ? "  (cc " + checkPriceCc.join(", ") + ")" : "");
+    var msg = "Email the supplier asking for a price breakdown?\n\n" +
+      "To:  " + who + "\n\n" +
+      "Please could you send me a price breakdown for order " + order + (inv ? " on invoice " + inv : "");
+    if (!window.confirm(msg)) return;
+    btn.disabled = true;
+    fetch("/api/check-price", {
+      method: "POST",
+      headers: ownerCode
+        ? { "Content-Type": "application/json", "x-owner-code": ownerCode }
+        : { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: order, invoice: inv || null })
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        btn.disabled = false;
+        if (j && j.ok) { btn.classList.add("sent"); btn.title = "Price breakdown requested"; flash(btn, "Sent ✓"); }
+        else { flash(btn, "Failed"); }
+      })
+      .catch(function () { btn.disabled = false; flash(btn, "Failed"); });
   }
   function carriageLabel() {
     if (state.carriage === "dpd") return "DPD £15";
@@ -1272,6 +1315,10 @@
     var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
     var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
     var member = groupKey != null;
+    // ✉ = ask the supplier for this order's price breakdown (owner only, and only once configured)
+    var mailBtn = (checkPriceOn && !isLocked())
+      ? '<button class="rowmail" data-i="' + i + '" title="Ask the supplier for a price breakdown" aria-label="Ask the supplier for a price breakdown">✉</button>'
+      : '';
     return '<tr class="srow' + (member ? ' memberrow" data-grp="' + groupKey + '" hidden' : '"') + ' data-i="' + i + '" title="Click to view details">' +
       '<td><b>' + esc(r.order) + '</b></td>' +
       '<td>' + inv + '</td>' +
@@ -1280,7 +1327,7 @@
       '<td class="r">' + agreedCell + '</td>' +
       '<td class="r col-diff">' + deltaCell + '</td>' +
       '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
-      '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
+      '<td class="r">' + mailBtn + '<button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
       '</tr>';
   }
 
@@ -1341,6 +1388,12 @@
         h.querySelector(".gh-caret").textContent = open ? "▾" : "▸";
         Array.prototype.slice.call($("savedBody").querySelectorAll('tr.memberrow[data-grp="' + h.dataset.grp + '"]'))
           .forEach(function (m) { m.hidden = !open; });
+      });
+    });
+    Array.prototype.slice.call($("savedBody").querySelectorAll(".rowmail")).forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.stopPropagation(); // don't open the detail modal behind it
+        checkPrice(b, ordersCache[parseInt(b.dataset.i, 10)]);
       });
     });
     Array.prototype.slice.call($("savedBody").querySelectorAll(".rowdel")).forEach(function (b) {
@@ -1760,6 +1813,6 @@
   layoutEl.addEventListener("input", markDirty);
   layoutEl.addEventListener("change", markDirty);
   render();
-  initStore().then(initOwner).then(refreshOrders);
+  initStore().then(initOwner).then(initCheckPrice).then(refreshOrders);
 })();
 </script>
