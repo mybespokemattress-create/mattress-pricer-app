@@ -289,6 +289,11 @@
   .gh-ok { color: var(--good); font-weight: 700; }
   .gh-off { color: #c0392b; font-weight: 700; }
   .saved-t tr.memberrow td:first-child { padding-left: 26px; }
+  /* supplier (locked) view: withhold the reconciliation columns + hide delete controls */
+  .owner-locked .col-calc, .owner-locked .col-diff { display: none; }
+  .owner-locked .srow { cursor: default; }
+  .owner-locked .rowdel, .owner-locked #wipeBtn { display: none; }
+  .lockbtn.unlocked { border-color: var(--accent); color: var(--accent-deep); }
   .delta.pos { color: #c0392b; font-weight: 700; }
   .delta.neg { color: var(--good); font-weight: 700; }
   .rowdel { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
@@ -614,6 +619,7 @@
     <div class="saved-head">
       <h2>Saved Orders <span id="savedCount" style="color:var(--muted); font-weight:600;"></span></h2>
       <div class="saved-actions">
+        <button class="btn ghost lockbtn" id="ownerBtn" type="button" hidden>🔒 Owner login</button>
         <button class="btn ghost" id="exportBtn" type="button">Export CSV</button>
         <button class="btn ghost" id="wipeBtn" type="button">Clear all</button>
       </div>
@@ -622,7 +628,7 @@
     <div class="tablewrap">
       <table class="saved-t">
         <thead><tr>
-          <th>Order</th><th>Invoice #</th><th>Item</th><th class="r">Calculated</th><th class="r">Invoiced</th><th class="r">Difference</th><th>Saved</th><th></th>
+          <th>Order</th><th>Invoice #</th><th>Item</th><th class="r col-calc">Calculated</th><th class="r">Invoiced</th><th class="r col-diff">Difference</th><th>Saved</th><th></th>
         </tr></thead>
         <tbody id="savedBody"></tbody>
       </table>
@@ -1057,6 +1063,9 @@
   var QUOTES_KEY = "mp-quotes-v1";
   var apiOn = false;      // set by initStore(): true when the database API answers
   var ordersCache = [];   // last-loaded order list
+  var OWNER_KEY = "mp-owner"; // owner passcode remembered on THIS device only
+  var gatingOn = false, ownerUnlocked = false, ownerCode = null; // reconciliation gate (Southern only)
+  function isLocked() { return gatingOn && !ownerUnlocked; } // supplier view: hide the discrepancy data
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
@@ -1088,9 +1097,51 @@
   }
   function refreshOrders() {
     var p = apiOn
-      ? fetch("/api/orders").then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+      ? fetch("/api/orders", { headers: ownerCode ? { "x-owner-code": ownerCode } : {} }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
       : Promise.resolve(loadLocal());
     return p.then(function (arr) { ordersCache = arr || []; renderSaved(); });
+  }
+
+  // Owner gate (Southern): when gated, the API withholds the calculated price/breakdown unless
+  // unlocked with the passcode. Mattressshire isn't gated (no OWNER_CODE), so this is a no-op there.
+  function initOwner() {
+    try { ownerCode = localStorage.getItem(OWNER_KEY) || null; } catch (e) { ownerCode = null; }
+    return fetch("/api/owner/enabled").then(function (r) { return r.ok ? r.json() : { gated: false }; })
+      .then(function (j) {
+        gatingOn = !!(j && j.gated);
+        if (!gatingOn || !ownerCode) { ownerUnlocked = false; if (!gatingOn) ownerCode = null; return; }
+        return fetch("/api/owner/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: ownerCode }) })
+          .then(function (r) { return r.ok ? r.json() : { ok: false }; })
+          .then(function (v) { ownerUnlocked = !!(v && v.ok); if (!ownerUnlocked) { ownerCode = null; try { localStorage.removeItem(OWNER_KEY); } catch (e) {} } });
+      })
+      .catch(function () { gatingOn = false; ownerUnlocked = false; ownerCode = null; })
+      .then(updateOwnerBtn);
+  }
+  function updateOwnerBtn() {
+    var b = $("ownerBtn"); if (!b) return;
+    b.hidden = !gatingOn;
+    b.textContent = ownerUnlocked ? "🔓 Owner — lock" : "🔒 Owner login";
+    b.classList.toggle("unlocked", ownerUnlocked);
+  }
+  function ownerToggle() {
+    if (ownerUnlocked) { // re-lock this device
+      ownerUnlocked = false; ownerCode = null;
+      try { localStorage.removeItem(OWNER_KEY); } catch (e) {}
+      updateOwnerBtn(); refreshOrders();
+      return;
+    }
+    var code = window.prompt("Owner passcode:");
+    if (code == null || code === "") return;
+    fetch("/api/owner/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code }) })
+      .then(function (r) { return r.ok ? r.json() : { ok: false }; })
+      .then(function (v) {
+        if (v && v.ok) {
+          ownerUnlocked = true; ownerCode = code;
+          try { localStorage.setItem(OWNER_KEY, code); } catch (e) {}
+          updateOwnerBtn(); refreshOrders();
+        } else { flash($("ownerBtn"), "Wrong passcode"); }
+      })
+      .catch(function () { flash($("ownerBtn"), "Try again"); });
   }
   function carriageLabel() {
     if (state.carriage === "dpd") return "DPD £15";
@@ -1226,9 +1277,9 @@
       '<td><b>' + esc(r.order) + '</b></td>' +
       '<td>' + inv + '</td>' +
       '<td>' + esc(r.model) + '<br><small style="color:var(--muted)">' + esc(r.size) + ' · ' + esc(r.depth) + carr + '</small></td>' +
-      '<td class="r">' + calc + '</td>' +
+      '<td class="r col-calc">' + calc + '</td>' +
       '<td class="r">' + agreedCell + '</td>' +
-      '<td class="r">' + deltaCell + '</td>' +
+      '<td class="r col-diff">' + deltaCell + '</td>' +
       '<td><small style="color:var(--muted)">' + esc(when) + '</small></td>' +
       '<td class="r"><button class="rowdel" data-i="' + i + '" title="Delete" aria-label="Delete order">✕</button></td>' +
       '</tr>';
@@ -1236,6 +1287,7 @@
 
   function renderSaved() {
     var arr = ordersCache, card = $("savedCard");
+    card.classList.toggle("owner-locked", isLocked()); // supplier view hides the Calculated/Difference columns
     if (!arr.length) { card.style.display = "none"; updateBatchNote(); return; }
     card.style.display = "";
     $("savedCount").textContent = "(" + arr.length + ")";
@@ -1263,9 +1315,10 @@
       });
       var c = computeInvoice(itemsArr, boxQty || 0);
       var n = g.items.length;
-      var flag = mism > 0
+      // mismatch flag + winner chip are owner-only (hidden from the supplier)
+      var flag = isLocked() ? "" : ' · ' + (mism > 0
         ? '<span class="gh-off">⚠ ' + mism + ' mismatch' + (mism > 1 ? 'es' : '') + '</span>'
-        : '<span class="gh-ok">✓ all match</span>';
+        : '<span class="gh-ok">✓ all match</span>');
       var totalBit = ' · net ' + money(c.net) + (INV.vatPct ? ' · ' + money(c.gross) + ' inc VAT' : '');
       if (invTotal != null && c.hasInv) {
         var diff = Math.round((invTotal - c.gross) * 100) / 100;
@@ -1274,10 +1327,10 @@
           : ' · <span class="gh-off">vs ' + money(invTotal) + '</span>';
       }
       var w = winnerOf(c.diffSum);
-      var winChip = (c.bothCount && Math.abs(c.diffSum) >= 0.005) ? ' <span class="winbadge ' + w.cls + '">' + w.chip + '</span>' : '';
+      var winChip = (!isLocked() && c.bothCount && Math.abs(c.diffSum) >= 0.005) ? ' <span class="winbadge ' + w.cls + '">' + w.chip + '</span>' : '';
       var header = '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
-        '<span class="gh-meta">· ' + n + (n === 1 ? ' item' : ' items') + totalBit + ' · </span>' + flag + winChip +
+        '<span class="gh-meta">· ' + n + (n === 1 ? ' item' : ' items') + totalBit + '</span>' + flag + winChip +
         '</td></tr>';
       return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
     }).join("");
@@ -1296,15 +1349,17 @@
         e.stopPropagation();
         var i = parseInt(b.dataset.i, 10), row = ordersCache[i];
         if (apiOn && row && row.id != null) {
-          fetch("/api/orders/" + row.id, { method: "DELETE" }).then(refreshOrders).catch(function () {});
+          fetch("/api/orders/" + row.id, { method: "DELETE", headers: ownerCode ? { "x-owner-code": ownerCode } : {} }).then(refreshOrders).catch(function () {});
         } else {
           var a = loadLocal(); a.splice(i, 1); saveLocal(a); refreshOrders();
         }
       });
     });
-    Array.prototype.slice.call($("savedBody").querySelectorAll(".srow")).forEach(function (tr) {
-      tr.addEventListener("click", function () { openDetail(parseInt(tr.dataset.i, 10)); });
-    });
+    if (!isLocked()) { // detail modal shows the breakdown — owner only
+      Array.prototype.slice.call($("savedBody").querySelectorAll(".srow")).forEach(function (tr) {
+        tr.addEventListener("click", function () { openDetail(parseInt(tr.dataset.i, 10)); });
+      });
+    }
     updateBatchNote();
   }
 
@@ -1567,7 +1622,7 @@
       checkHtml = '<div class="dm-sub" style="margin-top:12px">Enter the Invoice total to check it against this.</div>';
     }
     var w = winnerOf(c.diffSum);
-    var winBig = c.bothCount ? '<div class="winbig ' + w.cls + '"><div class="wl">' + w.who + '</div><div class="wa">' + w.amount + '</div></div>' : '';
+    var winBig = (!isLocked() && c.bothCount) ? '<div class="winbig ' + w.cls + '"><div class="wl">' + w.who + '</div><div class="wa">' + w.amount + '</div></div>' : '';
     $("invoiceCard").innerHTML =
       '<button class="dm-close" id="invClose" type="button" aria-label="Close">✕</button>' +
       '<div class="dm-order">Invoice ' + esc(inv) + '</div>' +
@@ -1681,6 +1736,7 @@
   $("mbarInfo").addEventListener("click", function () { document.querySelector(".summary").scrollIntoView({ behavior: "smooth", block: "start" }); });
   $("exportBtn").addEventListener("click", exportCSV);
   $("wipeBtn").addEventListener("click", wipeSaved);
+  $("ownerBtn").addEventListener("click", ownerToggle);
   $("orderNo").addEventListener("input", function () { this.classList.remove("err"); updateQuoteHeader(); });
   $("detailBackdrop").addEventListener("click", closeDetail);
   $("calcInvoiceBtn").addEventListener("click", openInvoiceSummary);
@@ -1705,6 +1761,6 @@
   layoutEl.addEventListener("input", markDirty);
   layoutEl.addEventListener("change", markDirty);
   render();
-  initStore().then(refreshOrders);
+  initStore().then(initOwner).then(refreshOrders);
 })();
 </script>

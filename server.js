@@ -21,6 +21,10 @@ app.use(express.json({ limit: "1mb" }));
 // SUPPLIER env picks which one (default "southern"). The browser therefore never receives
 // another supplier's prices — true separation, no login needed.
 const SUPPLIER = (process.env.SUPPLIER || "southern").toLowerCase();
+// Owner gate: if OWNER_CODE is set (Southern, supplier-facing), the reconciliation data (calculated
+// price + price breakdown) is withheld from /api/orders unless the request proves ownership with the
+// code. Leave OWNER_CODE unset (Mattressshire, private) to always return everything.
+const OWNER_CODE = process.env.OWNER_CODE || null;
 const INDEX_PATH = path.join(__dirname, "public", "index.html");
 let RENDERED_INDEX = null;
 function getIndexHtml() {
@@ -92,8 +96,17 @@ app.get("/api/health", async (_req, res) => {
   catch (e) { res.status(503).json({ ok: false }); }
 });
 
-// list — newest first, scoped to THIS deployment's supplier ("combined" sees all)
-app.get("/api/orders", async (_req, res) => {
+// owner gate: is this deployment gated, and does a code unlock it?
+app.get("/api/owner/enabled", (_req, res) => res.json({ gated: !!OWNER_CODE }));
+app.post("/api/owner/unlock", (req, res) => {
+  const code = (req.body && req.body.code) || "";
+  res.json({ ok: !!OWNER_CODE && String(code) === OWNER_CODE });
+});
+
+// list — newest first, scoped to THIS deployment's supplier ("combined" sees all).
+// When gated (OWNER_CODE set) and the caller isn't the owner, WITHHOLD the calculated price + line
+// breakdown so the supplier-facing view can't reveal any discrepancy — the data never reaches them.
+app.get("/api/orders", async (req, res) => {
   if (!pool) return res.status(503).json([]);
   try {
     let where = "", params = [];
@@ -102,6 +115,8 @@ app.get("/api/orders", async (_req, res) => {
       `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram, supplier, invoice, invoice_total AS "invoiceTotal", box_qty AS "boxQty"
          FROM orders ${where} ORDER BY created_at DESC LIMIT 2000`, params
     );
+    const gated = OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE;
+    if (gated) rows.forEach((r) => { delete r.calc; delete r.lines; });
     res.json(rows);
   } catch (e) { console.error(e); res.status(500).json([]); }
 });
@@ -130,6 +145,7 @@ app.post("/api/orders", async (req, res) => {
 // delete one
 app.delete("/api/orders/:id", async (req, res) => {
   if (!pool) return res.status(503).json({ error: "no database" });
+  if (OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE) return res.status(403).json({ error: "locked" }); // supplier can't delete
   try { await pool.query("DELETE FROM orders WHERE id = $1", [req.params.id]); res.json({ ok: true }); }
   catch (e) { console.error(e); res.status(500).json({ error: "delete failed" }); }
 });
