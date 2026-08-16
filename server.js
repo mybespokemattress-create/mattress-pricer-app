@@ -21,10 +21,11 @@ app.use(express.json({ limit: "1mb" }));
 // SUPPLIER env picks which one (default "southern"). The browser therefore never receives
 // another supplier's prices — true separation, no login needed.
 const SUPPLIER = (process.env.SUPPLIER || "southern").toLowerCase();
-// Owner gate: if OWNER_CODE is set (Southern, supplier-facing), the reconciliation data (calculated
-// price + price breakdown) is withheld from /api/orders unless the request proves ownership with the
-// code. Leave OWNER_CODE unset (Mattressshire, private) to always return everything.
-const OWNER_CODE = process.env.OWNER_CODE || null;
+// Owner gate: when OWNER_CODE is set, the reconciliation data (calculated price + price breakdown) is
+// withheld from /api/orders unless the request proves ownership with the code. Southern is supplier-
+// facing so it's gated by default (env override wins); Mattressshire is private so it stays ungated
+// unless an OWNER_CODE env is explicitly set on that service.
+const OWNER_CODE = process.env.OWNER_CODE || (SUPPLIER === "southern" ? "73371991aaA" : null);
 const INDEX_PATH = path.join(__dirname, "public", "index.html");
 let RENDERED_INDEX = null;
 function getIndexHtml() {
