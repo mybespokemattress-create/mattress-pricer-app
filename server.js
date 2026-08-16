@@ -177,9 +177,18 @@ function envList(name) {
   if (!raw) return null;
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
+// The owner is always copied in, so the request lands in the SAME inbox the reply comes back to
+// (EMAIL_REPLY_TO) and can be flagged there and chased until the supplier answers. Set the env to an
+// empty string to switch the copy off.
+const EMAIL_COPY_TO = process.env.EMAIL_COPY_TO === undefined
+  ? "hello@mybespokemattress.com"
+  : process.env.EMAIL_COPY_TO.trim();
+
 const recipients = CHECK_PRICE_RECIPIENTS[SUPPLIER] || { to: [], cc: [] };
 const CHECK_TO = envList("CHECK_PRICE_TO") || recipients.to;
-const CHECK_CC = envList("CHECK_PRICE_CC") || recipients.cc;
+const CHECK_CC = (envList("CHECK_PRICE_CC") || recipients.cc)
+  .concat(EMAIL_COPY_TO ? [EMAIL_COPY_TO] : [])
+  .filter((a, i, all) => a && all.indexOf(a) === i); // de-dupe, in case the copy is already listed
 const checkPriceEnabled = !!(RESEND_API_KEY && CHECK_TO.length);
 
 function isOwner(req) { return !OWNER_CODE || req.get("x-owner-code") === OWNER_CODE; }
