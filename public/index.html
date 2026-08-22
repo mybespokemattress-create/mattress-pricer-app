@@ -314,6 +314,17 @@
   .preq-done:hover { text-decoration: underline; }
   .preq.ticked .preq-main, .preq.ticked .preq-age { text-decoration: line-through; color: var(--muted); font-weight: 400; }
   .preq.ticked .preq-done { color: var(--muted); }
+  /* compose box for the price-breakdown email */
+  .mail-h { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+  .mail-to { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.55; }
+  .mail-to b { color: var(--body); font-weight: 700; }
+  .mail-warn { background: #fff4e5; border: 1px solid #f0c48a; color: #8a5200; border-radius: 9px; padding: 8px 11px; font-size: 13px; margin-bottom: 12px; }
+  .mail-sub { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .mail-body { width: 100%; min-height: 190px; resize: vertical; font: inherit; font-size: 14px; line-height: 1.6;
+    color: var(--ink); background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 10px; padding: 11px 12px; }
+  .mail-body:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .mail-foot { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 14px; }
+  .mail-note { margin-right: auto; font-size: 12.5px; color: var(--muted); }
 
   /* how-to guide */
   .guide { margin-top: 22px; padding: 20px 22px; }
@@ -674,6 +685,22 @@
 <div class="modal" id="detailModal" hidden>
   <div class="modal-backdrop" id="detailBackdrop"></div>
   <div class="modal-card" id="detailCard"></div>
+</div>
+
+<div class="modal" id="mailModal" hidden>
+  <div class="modal-backdrop" id="mailBackdrop"></div>
+  <div class="modal-card">
+    <p class="mail-h">Ask the supplier for a price breakdown</p>
+    <div class="mail-to" id="mailTo"></div>
+    <div class="mail-warn" id="mailWarn" hidden></div>
+    <div class="mail-sub" id="mailSubject"></div>
+    <textarea class="mail-body" id="mailBody" spellcheck="true"></textarea>
+    <div class="mail-foot">
+      <span class="mail-note" id="mailNote">Edit the wording before it goes.</span>
+      <button class="btn ghost" id="mailCancel" type="button">Cancel</button>
+      <button class="btn" id="mailSend" type="button">Send email</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal" id="invoiceModal" hidden>
@@ -1185,36 +1212,61 @@
   }
   // Sends a real email to an outside supplier, so it always confirms first — naming the order and
   // every recipient — and never fires on a stray click of the row.
+  // ✉ opens a compose box rather than sending blind: the draft comes from the server (so what's on
+  // screen is exactly what would go out) and is editable before it does.
+  var mailDraft = null; // { btn, order, invoice }
   function checkPrice(btn, row) {
     var order = row && row.order ? String(row.order) : "";
     if (!order) return;
     var inv = (row.invoice && String(row.invoice).trim()) ? String(row.invoice).trim() : "";
-    var who = checkPriceTo.join(", ") + (checkPriceCc.length ? "  (cc " + checkPriceCc.join(", ") + ")" : "");
-    var dup = pendingByOrder[String(row.order)];
-    var msg = "Email the supplier asking for a price breakdown?\n\n" +
-      (dup ? "⚠ Already asked — " + ageLabel(daysSince(dup.sentAt)) + ", still unanswered.\n\n" : "") +
-      "To:  " + who + "\n\n" +
-      "Please could you send me a price breakdown for order " + order + (inv ? " on invoice " + inv : "");
-    if (!window.confirm(msg)) return;
-    btn.disabled = true;
+    var dup = pendingByOrder[order];
+
+    mailDraft = { btn: btn, order: order, invoice: inv };
+    $("mailTo").innerHTML = "<b>To</b> " + esc(checkPriceTo.join(", ")) +
+      (checkPriceCc.length ? "<br><b>Cc</b> " + esc(checkPriceCc.join(", ")) : "");
+    $("mailWarn").hidden = !dup;
+    if (dup) $("mailWarn").textContent = "⚠ Already asked — " + ageLabel(daysSince(dup.sentAt)) + ", still unanswered.";
+    $("mailSubject").textContent = "Loading…";
+    $("mailBody").value = "";
+    $("mailSend").disabled = true;
+    $("mailModal").hidden = false;
+
+    fetch("/api/check-price/draft?order=" + encodeURIComponent(order) + (inv ? "&invoice=" + encodeURIComponent(inv) : ""),
+      { headers: ownerCode ? { "x-owner-code": ownerCode } : {} })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) { $("mailSubject").textContent = "Couldn't load the draft — close and try again."; return; }
+        $("mailSubject").innerHTML = "<b>Subject</b> " + esc(d.subject);
+        $("mailBody").value = d.body;
+        $("mailSend").disabled = false;
+        $("mailBody").focus();
+      })
+      .catch(function () { $("mailSubject").textContent = "Couldn't load the draft — close and try again."; });
+  }
+  function closeMailModal() { $("mailModal").hidden = true; mailDraft = null; }
+  function sendMail() {
+    if (!mailDraft) return;
+    var d = mailDraft, btn = d.btn, body = $("mailBody").value.trim();
+    if (!body) { $("mailNote").textContent = "The message is empty."; return; }
+    $("mailSend").disabled = true;
+    $("mailNote").textContent = "Sending…";
     fetch("/api/check-price", {
       method: "POST",
       headers: ownerCode
         ? { "Content-Type": "application/json", "x-owner-code": ownerCode }
         : { "Content-Type": "application/json" },
-      body: JSON.stringify({ order: order, invoice: inv || null })
+      body: JSON.stringify({ order: d.order, invoice: d.invoice || null, message: body })
     })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
-        btn.disabled = false;
-        if (j && j.ok) {
-          btn.classList.add("sent"); btn.title = "Price breakdown requested"; flash(btn, "Sent ✓");
-          // list it as outstanding at once; redraw the rows after the "Sent ✓" flash has passed
-          loadPending().then(function () { renderPending(); setTimeout(renderSaved, 1600); });
-        }
-        else { flash(btn, "Failed"); }
+        if (!(j && j.ok)) { $("mailSend").disabled = false; $("mailNote").textContent = "Send failed — try again."; return; }
+        closeMailModal();
+        $("mailNote").textContent = "Edit the wording before it goes.";
+        if (btn) { btn.classList.add("sent"); btn.title = "Price breakdown requested"; flash(btn, "Sent ✓"); }
+        // list it as outstanding at once; redraw the rows after the "Sent ✓" flash has passed
+        loadPending().then(function () { renderPending(); setTimeout(renderSaved, 1600); });
       })
-      .catch(function () { btn.disabled = false; flash(btn, "Failed"); });
+      .catch(function () { $("mailSend").disabled = false; $("mailNote").textContent = "Send failed — try again."; });
   }
   // Outstanding requests. Sending is fire-and-forget by nature, so the ones still unanswered are
   // listed here to be chased — otherwise a request goes out and is quietly forgotten.
@@ -1879,9 +1931,12 @@
   $("ownerBtn").addEventListener("click", ownerToggle);
   $("orderNo").addEventListener("input", function () { this.classList.remove("err"); updateQuoteHeader(); });
   $("detailBackdrop").addEventListener("click", closeDetail);
+  $("mailBackdrop").addEventListener("click", closeMailModal);
+  $("mailCancel").addEventListener("click", closeMailModal);
+  $("mailSend").addEventListener("click", sendMail);
   $("calcInvoiceBtn").addEventListener("click", openInvoiceSummary);
   $("invoiceBackdrop").addEventListener("click", closeInvoiceModal);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDetail(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeDetail(); closeMailModal(); } });
   $("orderNo").addEventListener("input", function () {
     if (!lookupEnabled) return;
     var q = this.value.trim();

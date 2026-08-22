@@ -208,6 +208,28 @@ function escHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+// The wording the operator sees in the compose box IS the wording that gets sent — both come from
+// here, so the preview can never drift from the email that actually goes out.
+function subjectFor(order, invoice) {
+  return "Price breakdown request — order " + order + (invoice ? " (invoice " + invoice + ")" : "");
+}
+function defaultBody(order, invoice) {
+  return [
+    "Hello,",
+    "",
+    "Please could you send me a price breakdown for " +
+      (invoice ? "order " + order + " on invoice " + invoice : "order " + order),
+    "",
+    "Many thanks,",
+    EMAIL_SIGNOFF,
+  ].join("\n");
+}
+// The body is operator-typed, so it is escaped before going anywhere near the HTML part.
+function bodyToHtml(body) {
+  return '<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">' +
+    escHtml(body).replace(/\n/g, "<br>") + "</div>";
+}
+
 async function sendViaResend({ to, cc, subject, html, text }) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -233,6 +255,15 @@ app.get("/api/check-price/enabled", (req, res) => {
   res.json({ enabled: true, to: CHECK_TO, cc: CHECK_CC });
 });
 
+// What would be sent for this order — fills the compose box before the operator edits it.
+app.get("/api/check-price/draft", (req, res) => {
+  if (!checkPriceEnabled || !isOwner(req)) return res.status(403).json({ error: "locked" });
+  const order = String(req.query.order || "").trim();
+  if (!order) return res.status(400).json({ error: "order number required" });
+  const invoice = String(req.query.invoice || "").trim();
+  res.json({ subject: subjectFor(order, invoice), body: defaultBody(order, invoice), to: CHECK_TO, cc: CHECK_CC });
+});
+
 app.post("/api/check-price", async (req, res) => {
   if (!checkPriceEnabled) return res.status(503).json({ error: "email not configured" });
   if (!isOwner(req)) return res.status(403).json({ error: "locked" });
@@ -241,25 +272,13 @@ app.post("/api/check-price", async (req, res) => {
   if (!order) return res.status(400).json({ error: "order number required" });
   const invoice = String(b.invoice || "").trim();
 
-  const ref = invoice
-    ? "order " + escHtml(order) + " on invoice " + escHtml(invoice)
-    : "order " + escHtml(order);
-  const subject = "Price breakdown request — order " + order + (invoice ? " (invoice " + invoice + ")" : "");
-  const html =
-    '<div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.6;">' +
-    "<p>Hello,</p>" +
-    "<p>Please could you send me a price breakdown for " + ref + "</p>" +
-    "<p>Many thanks,<br>" + escHtml(EMAIL_SIGNOFF) + "</p>" +
-    "</div>";
-  const text = [
-    "Hello,",
-    "",
-    "Please could you send me a price breakdown for " +
-      (invoice ? "order " + order + " on invoice " + invoice : "order " + order),
-    "",
-    "Many thanks,",
-    EMAIL_SIGNOFF,
-  ].join("\n");
+  // Whatever the operator left in the compose box is what goes out, verbatim. The default is only
+  // the starting point — and the fallback for a caller that sends no body at all.
+  const edited = typeof b.message === "string" ? b.message.trim() : "";
+  if (edited.length > 5000) return res.status(400).json({ error: "message too long" });
+  const text = edited || defaultBody(order, invoice);
+  const subject = subjectFor(order, invoice);
+  const html = bodyToHtml(text);
 
   try {
     const id = await sendViaResend({ to: CHECK_TO, cc: CHECK_CC, subject: subject, html: html, text: text });
