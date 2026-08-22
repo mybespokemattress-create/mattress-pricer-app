@@ -304,16 +304,22 @@
   .rowmail.sent { color: var(--good); }
   .rowmail.awaiting { color: #b7791f; }               /* breakdown already asked for, no reply yet */
   /* Outstanding price-breakdown requests */
-  .preq { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); }
-  .preq:first-child { border-top: 0; }
+  /* 20px matches .saved-head / .saved-note — .card itself carries no padding */
+  #pendingList { padding: 0 20px 14px; }
+  .preq { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
   .preq-main { flex: 1 1 auto; min-width: 0; }
   .preq-meta { color: var(--muted); font-size: 12.5px; }
   .preq-age { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
   .preq-age.old { color: #c0392b; font-weight: 700; }
-  .preq-done { border: 0; background: none; cursor: pointer; color: var(--good); font-weight: 700; font-size: 13px; padding: 4px 6px; white-space: nowrap; }
+  .preq-done { border: 0; background: none; cursor: pointer; color: var(--good); font-weight: 700; font-size: 13px; padding: 4px 0; white-space: nowrap; }
   .preq-done:hover { text-decoration: underline; }
   .preq.ticked .preq-main, .preq.ticked .preq-age { text-decoration: line-through; color: var(--muted); font-weight: 400; }
   .preq.ticked .preq-done { color: var(--muted); }
+  /* phones: let the order have the full width, age + button underneath */
+  @media (max-width: 560px) {
+    .preq { flex-wrap: wrap; gap: 4px 12px; }
+    .preq-main { flex: 1 0 100%; }
+  }
   /* compose box for the price-breakdown email */
   .mail-h { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
   .mail-to { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.55; }
