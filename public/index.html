@@ -302,6 +302,18 @@
   .rowmail { cursor: pointer; color: var(--muted); border: 0; background: none; font-size: 14px; padding: 0 4px; }
   .rowmail:hover { color: var(--accent-deep); }
   .rowmail.sent { color: var(--good); }
+  .rowmail.awaiting { color: #b7791f; }               /* breakdown already asked for, no reply yet */
+  /* Outstanding price-breakdown requests */
+  .preq { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); }
+  .preq:first-child { border-top: 0; }
+  .preq-main { flex: 1 1 auto; min-width: 0; }
+  .preq-meta { color: var(--muted); font-size: 12.5px; }
+  .preq-age { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .preq-age.old { color: #c0392b; font-weight: 700; }
+  .preq-done { border: 0; background: none; cursor: pointer; color: var(--good); font-weight: 700; font-size: 13px; padding: 4px 6px; white-space: nowrap; }
+  .preq-done:hover { text-decoration: underline; }
+  .preq.ticked .preq-main, .preq.ticked .preq-age { text-decoration: line-through; color: var(--muted); font-weight: 400; }
+  .preq.ticked .preq-done { color: var(--muted); }
 
   /* how-to guide */
   .guide { margin-top: 22px; padding: 20px 22px; }
@@ -614,6 +626,14 @@
         </div>
       </div>
     </details>
+  </div>
+
+  <div class="card" id="pendingCard" style="display:none; margin-top:22px;">
+    <div class="saved-head">
+      <h2>Awaiting supplier reply <span id="pendingCount" style="color:var(--muted); font-weight:600;"></span></h2>
+    </div>
+    <div class="saved-note">Price breakdowns you've asked for. Tick one off when the supplier answers.</div>
+    <div id="pendingList"></div>
   </div>
 
   <div class="card" id="savedCard" style="display:none; margin-top:22px;">
@@ -1029,7 +1049,9 @@
       $("totalNote").textContent = "";
     }
     window.__lastQuote = { size: size, sku: skuObj(), build: buildObj(), depth: depthLabel(), r: r };
-    $("agreed").placeholder = r.poa ? "POA — enter invoiced price" : money(r.total);
+    // Deliberately NOT the calculated total: most mattresses carry modifications, so a ghosted
+    // base price reads as "what it should cost" and is usually wrong. Stay blank; POA still prompts.
+    $("agreed").placeholder = r.poa ? "POA — enter invoiced price" : "—";
     $("mbarTotal").textContent = r.poa ? "POA" : money(r.total);
   }
 
@@ -1068,6 +1090,7 @@
   var gatingOn = false, ownerUnlocked = false, ownerCode = null; // reconciliation gate (Southern only)
   function isLocked() { return gatingOn && !ownerUnlocked; } // supplier view: hide the discrepancy data
   var checkPriceOn = false, checkPriceTo = [], checkPriceCc = []; // ✉ "ask the supplier for a price breakdown"
+  var pendingReqs = [], pendingByOrder = {}; // breakdown requests sent and not yet answered
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
@@ -1101,7 +1124,9 @@
     var p = apiOn
       ? fetch("/api/orders", { headers: ownerCode ? { "x-owner-code": ownerCode } : {} }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
       : Promise.resolve(loadLocal());
-    return p.then(function (arr) { ordersCache = arr || []; renderSaved(); });
+    return Promise.all([p, loadPending()]).then(function (v) {
+      ordersCache = v[0] || []; renderSaved(); renderPending();
+    });
   }
 
   // Owner gate (Southern): when gated, the API withholds the calculated price/breakdown unless
@@ -1165,7 +1190,9 @@
     if (!order) return;
     var inv = (row.invoice && String(row.invoice).trim()) ? String(row.invoice).trim() : "";
     var who = checkPriceTo.join(", ") + (checkPriceCc.length ? "  (cc " + checkPriceCc.join(", ") + ")" : "");
+    var dup = pendingByOrder[String(row.order)];
     var msg = "Email the supplier asking for a price breakdown?\n\n" +
+      (dup ? "⚠ Already asked — " + ageLabel(daysSince(dup.sentAt)) + ", still unanswered.\n\n" : "") +
       "To:  " + who + "\n\n" +
       "Please could you send me a price breakdown for order " + order + (inv ? " on invoice " + inv : "");
     if (!window.confirm(msg)) return;
@@ -1180,10 +1207,68 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         btn.disabled = false;
-        if (j && j.ok) { btn.classList.add("sent"); btn.title = "Price breakdown requested"; flash(btn, "Sent ✓"); }
+        if (j && j.ok) {
+          btn.classList.add("sent"); btn.title = "Price breakdown requested"; flash(btn, "Sent ✓");
+          // list it as outstanding at once; redraw the rows after the "Sent ✓" flash has passed
+          loadPending().then(function () { renderPending(); setTimeout(renderSaved, 1600); });
+        }
         else { flash(btn, "Failed"); }
       })
       .catch(function () { btn.disabled = false; flash(btn, "Failed"); });
+  }
+  // Outstanding requests. Sending is fire-and-forget by nature, so the ones still unanswered are
+  // listed here to be chased — otherwise a request goes out and is quietly forgotten.
+  function loadPending() {
+    if (!checkPriceOn) { pendingReqs = []; return Promise.resolve([]); }
+    return fetch("/api/check-price/pending", { headers: ownerCode ? { "x-owner-code": ownerCode } : {} })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (a) { pendingReqs = a || []; return pendingReqs; })
+      .catch(function () { pendingReqs = []; return []; });
+  }
+  function daysSince(ts) {
+    var d = new Date(ts); if (isNaN(d)) return null;
+    return Math.floor((Date.now() - d.getTime()) / 86400000);
+  }
+  function ageLabel(n) { return n == null ? "" : n <= 0 ? "sent today" : n === 1 ? "sent yesterday" : "sent " + n + " days ago"; }
+  function renderPending() {
+    // a request only counts as outstanding while it's unticked — this also drives the row ✉ state
+    pendingByOrder = {};
+    pendingReqs.forEach(function (p) { if (!p.ticked) pendingByOrder[String(p.order)] = p; });
+
+    var card = $("pendingCard"), live = pendingReqs.filter(function (p) { return !p.ticked; });
+    if (isLocked() || !pendingReqs.length) { card.style.display = "none"; return; }
+    card.style.display = "";
+    $("pendingCount").textContent = "(" + live.length + ")";
+    $("pendingList").innerHTML = pendingReqs.map(function (p) {
+      var n = daysSince(p.sentAt), old = n != null && n >= 3;
+      var inv = p.invoice ? " · invoice " + esc(String(p.invoice)) : "";
+      return '<div class="preq' + (p.ticked ? " ticked" : "") + '" data-id="' + p.id + '">' +
+        '<span class="preq-main"><b>' + esc(String(p.order)) + '</b>' +
+          '<span class="preq-meta">' + inv + '</span></span>' +
+        '<span class="preq-age' + (old && !p.ticked ? " old" : "") + '">' + esc(ageLabel(n)) + '</span>' +
+        '<button class="preq-done" type="button">' + (p.ticked ? "Undo" : "Mark replied") + '</button>' +
+        '</div>';
+    }).join("");
+    Array.prototype.slice.call($("pendingList").querySelectorAll(".preq-done")).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var el = b.parentNode, id = parseInt(el.dataset.id, 10);
+        var p = pendingReqs.filter(function (x) { return x.id === id; })[0];
+        if (p) markReplied(p, !p.ticked);
+      });
+    });
+  }
+  // Ticking off is reversible on the spot — a mis-click would otherwise silently drop the chase.
+  // The ticked row stays visible (struck through) until the next refresh, so Undo is always reachable.
+  function markReplied(p, replied) {
+    p.ticked = replied;
+    renderPending(); renderSaved();
+    fetch("/api/check-price/" + p.id + "/replied", {
+      method: "POST",
+      headers: ownerCode
+        ? { "Content-Type": "application/json", "x-owner-code": ownerCode }
+        : { "Content-Type": "application/json" },
+      body: JSON.stringify({ replied: replied })
+    }).catch(function () { p.ticked = !replied; renderPending(); renderSaved(); }); // put it back if it didn't stick
   }
   function carriageLabel() {
     if (state.carriage === "dpd") return "DPD £15";
@@ -1316,8 +1401,11 @@
     var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
     var member = groupKey != null;
     // ✉ = ask the supplier for this order's price breakdown (owner only, and only once configured)
+    var waiting = pendingByOrder[String(r.order)];
     var mailBtn = (checkPriceOn && !isLocked())
-      ? '<button class="rowmail" data-i="' + i + '" title="Ask the supplier for a price breakdown" aria-label="Ask the supplier for a price breakdown">✉</button>'
+      ? '<button class="rowmail' + (waiting ? ' awaiting' : '') + '" data-i="' + i + '" title="' +
+        (waiting ? esc("Breakdown requested " + ageLabel(daysSince(waiting.sentAt)) + " — no reply yet") : "Ask the supplier for a price breakdown") +
+        '" aria-label="Ask the supplier for a price breakdown">✉</button>'
       : '';
     return '<tr class="srow' + (member ? ' memberrow" data-grp="' + groupKey + '" hidden' : '"') + ' data-i="' + i + '" title="Click to view details">' +
       '<td><b>' + esc(r.order) + '</b></td>' +

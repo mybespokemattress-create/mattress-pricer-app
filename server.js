@@ -87,6 +87,18 @@ async function initDb() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice TEXT`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_total NUMERIC`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS box_qty NUMERIC`);
+  // Every "check price" email is logged here so the outstanding ones can be chased. A row is
+  // OUTSTANDING until replied_at is stamped by the owner ticking it off.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS price_requests (
+      id         SERIAL PRIMARY KEY,
+      order_no   TEXT NOT NULL,
+      invoice    TEXT,
+      supplier   TEXT,
+      sent_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      replied_at TIMESTAMPTZ
+    );
+  `);
   // Backfill legacy rows (saved before per-supplier tagging): Comfi/Imperial = Mattressshire, else Southern.
   await pool.query(`UPDATE orders SET supplier = 'mattressshire' WHERE supplier IS NULL AND (model ILIKE '%comfi%' OR model ILIKE '%imperial%')`);
   await pool.query(`UPDATE orders SET supplier = 'southern' WHERE supplier IS NULL`);
@@ -252,11 +264,49 @@ app.post("/api/check-price", async (req, res) => {
   try {
     const id = await sendViaResend({ to: CHECK_TO, cc: CHECK_CC, subject: subject, html: html, text: text });
     console.log("check-price email sent for " + order + " -> " + CHECK_TO.join(", ") + " (" + id + ")");
-    res.json({ ok: true, id: id, to: CHECK_TO, cc: CHECK_CC });
+    // Log it as outstanding. The email has already gone, so a logging failure must not read as a
+    // send failure — report the send as the success it was and just note the lost reminder.
+    let requestId = null;
+    if (pool) {
+      try {
+        const r = await pool.query(
+          "INSERT INTO price_requests (order_no, invoice, supplier) VALUES ($1,$2,$3) RETURNING id",
+          [order, invoice || null, SUPPLIER]
+        );
+        requestId = r.rows[0].id;
+      } catch (e) { console.error("check-price: sent but not logged:", e.message); }
+    }
+    res.json({ ok: true, id: id, requestId: requestId, to: CHECK_TO, cc: CHECK_CC });
   } catch (e) {
     console.error("check-price send failed:", e.message);
     res.status(502).json({ error: "send failed" });
   }
+});
+
+// Outstanding price-breakdown requests: what's been asked for and not yet answered.
+app.get("/api/check-price/pending", async (req, res) => {
+  if (!pool || !isOwner(req)) return res.json([]);
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, order_no AS "order", invoice, sent_at AS "sentAt"
+         FROM price_requests
+        WHERE replied_at IS NULL AND supplier = $1
+        ORDER BY sent_at ASC`, [SUPPLIER]
+    );
+    res.json(rows);
+  } catch (e) { console.error(e); res.json([]); }
+});
+
+// Tick one off once the supplier answers (or untick it — a mis-click shouldn't lose the chase).
+app.post("/api/check-price/:id/replied", async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "no database" });
+  if (!isOwner(req)) return res.status(403).json({ error: "locked" });
+  const replied = !(req.body && req.body.replied === false);
+  try {
+    await pool.query("UPDATE price_requests SET replied_at = $1 WHERE id = $2",
+      [replied ? new Date() : null, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: "update failed" }); }
 });
 
 // ---- Order-app bridge (server-side; key + order-app URL never reach the browser) ----
