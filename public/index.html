@@ -757,7 +757,7 @@
     var d = Math.round((diffSum || 0) * 100) / 100;
     if (Math.abs(d) < 0.005) return { cls: "win-even", who: "All square",       amount: "prices match" };
     if (d < 0)               return { cls: "win-you",  who: "Winner: Angelo",   amount: money(-d) + " in your favour", chip: "🏆 Angelo +" + money(-d) };
-    return                          { cls: "win-them", who: "Winner: Supplier", amount: money(d) + " in their favour", chip: "Supplier +" + money(d) };
+    return                          { cls: "win-them", who: "Winner: Supplier", amount: money(d) + " in their favour", chip: "🏆 Supplier +" + money(d) };
   }
   var SKUS = CATALOG.skus || [];
 
