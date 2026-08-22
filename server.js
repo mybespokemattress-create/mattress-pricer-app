@@ -302,6 +302,31 @@ app.post("/api/check-price", async (req, res) => {
   }
 });
 
+// Record a request that was already made — sent before this log existed, or asked by phone or
+// from a normal mail client — so it joins the chase list WITHOUT emailing the supplier again.
+app.post("/api/check-price/log", async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "no database" });
+  if (!isOwner(req)) return res.status(403).json({ error: "locked" });
+  const b = req.body || {};
+  const order = String(b.order || "").trim();
+  if (!order) return res.status(400).json({ error: "order number required" });
+  const invoice = String(b.invoice || "").trim() || null;
+  // sentAt is optional; without it the wait is timed from now, which understates an older request
+  let sentAt = null;
+  if (b.sentAt) {
+    sentAt = new Date(b.sentAt);
+    if (isNaN(sentAt.getTime())) return res.status(400).json({ error: "bad sentAt" });
+  }
+  try {
+    const { rows } = await pool.query(
+      "INSERT INTO price_requests (order_no, invoice, supplier, sent_at) VALUES ($1,$2,$3, COALESCE($4, now())) RETURNING id, sent_at",
+      [order, invoice, SUPPLIER, sentAt]
+    );
+    console.log("check-price request logged (not emailed) for " + order);
+    res.json({ ok: true, id: rows[0].id, sentAt: rows[0].sent_at });
+  } catch (e) { console.error(e); res.status(500).json({ error: "log failed" }); }
+});
+
 // Outstanding price-breakdown requests: what's been asked for and not yet answered.
 app.get("/api/check-price/pending", async (req, res) => {
   if (!pool || !isOwner(req)) return res.json([]);
