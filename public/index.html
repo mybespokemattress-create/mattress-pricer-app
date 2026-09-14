@@ -721,13 +721,13 @@
 (function () {
   "use strict";
 
-  // Sizes — standard four map to the grid; Circle & Oversized are priced by hand.
+  // Sizes — all four map to the grid, so every order gets a price. There is no POA band:
+  // anything wider than Super King prices at the Super King rate (see sizeFromMeasurements).
   var SIZES = [
     { key: "single", label: "Single",     grid: true },
     { key: "double", label: "Double",     grid: true },
     { key: "king",   label: "King",       grid: true },
-    { key: "sking",  label: "Super King", grid: true },
-    { key: "oversized", label: "Oversized", poa: true, note: "Oversized — over 183cm wide or 200cm long: call for a price (POA)." }
+    { key: "sking",  label: "Super King", grid: true }
   ];
 
   // ---------- Product catalogue (injected per-supplier by the server; see catalog.js) ----------
@@ -801,13 +801,26 @@
     }
     sel.innerHTML = '<option value="" disabled selected hidden>Select depth…</option>';
     b.depths.forEach(function (d, i) { var o = document.createElement("option"); o.value = String(i); o.textContent = d; sel.appendChild(o); });
-    // auto-select the depth: one option (e.g. Imperial), or an exact match to the supplier-code depth
+    // auto-select the depth: one option (e.g. Imperial), or the supplier-code depth. Where the code's
+    // depth isn't on this build's list (e.g. a 5″ Comfi against a 6/8/10″ grid) we never invent a
+    // price for it — we charge the next depth UP, the shallowest option that still covers it.
+    depthRoundedFrom = null;
     if (state.depthIdx == null) {
       if (b.depths.length === 1) state.depthIdx = 0;
       else if (codeDepthInches != null) {
         var hits = [];
         b.depths.forEach(function (lbl, i) { if (depthTotalInches(lbl) === codeDepthInches) hits.push(i); });
-        if (hits.length === 1) state.depthIdx = hits[0];  // only auto-fill on a single exact match
+        if (hits.length === 1) state.depthIdx = hits[0];  // exact match
+        else if (!hits.length) {
+          // no exact match — round up to the shallowest depth at or above the code's depth
+          var up = null, upVal = null;
+          b.depths.forEach(function (lbl, i) {
+            var v = depthTotalInches(lbl);
+            if (v != null && v > codeDepthInches && (upVal == null || v < upVal)) { up = i; upVal = v; }
+          });
+          // deeper than anything on offer → leave blank rather than guess
+          if (up != null) { state.depthIdx = up; depthRoundedFrom = codeDepthInches; }
+        }
       }
     }
     sel.value = (state.depthIdx == null) ? "" : String(state.depthIdx);
@@ -1126,6 +1139,7 @@
   var pendingReqs = [], pendingByOrder = {}; // breakdown requests sent and not yet answered
   var currentDiagram = ""; // diagram URL for the current quote (saved with the order)
   var codeDepthInches = null; // total depth derived from the pulled order's supplier code (foam layers summed)
+  var depthRoundedFrom = null; // set by refreshDepth when the code's depth wasn't on the grid and we charged the next depth up
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
   var currentQuoted = null; // { price, note } when the order carries a manually-agreed quoted (bespoke) price
 
@@ -1397,7 +1411,7 @@
     $("clearErr").hidden = true;
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
-    setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; currentQuoted = null; codeDepthInches = null; updateQuoteHeader();
+    setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; currentQuoted = null; codeDepthInches = null; depthRoundedFrom = null; updateQuoteHeader();
     $("agreed").value = "";
     if (!keepInvoice) { $("invoiceNo").value = ""; $("invoiceTotal").value = ""; $("boxesQty").value = ""; }  // a batch (Save & Next) keeps the invoice # + total + boxes
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
@@ -1594,14 +1608,17 @@
       .catch(function () { lookupEnabled = false; });
   }
 
-  function sizeFromMeasurements(w, l) {
-    if (l != null && l > 200) return "oversized";
+  // The size band comes from the WIDTH alone — length never moves an order out of the grid, however
+  // long it is. Only whole centimetres count: everything after the decimal point is dropped
+  // (137.6 → 137 → Double), so a measurement a hair over a band's limit still prices in that band.
+  // Nothing is ever "oversized": over 183cm wide falls through to Super King so a price always shows.
+  function sizeFromMeasurements(w) {
     if (w == null) return null;
-    if (w <= 92) return "single";
-    if (w <= 137) return "double";
-    if (w <= 153) return "king";
-    if (w <= 183) return "sking";
-    return "oversized";
+    var cm = Math.floor(w);
+    if (cm <= 92) return "single";
+    if (cm <= 137) return "double";
+    if (cm <= 153) return "king";
+    return "sking";
   }
 
   function renderAc(items) {
@@ -1652,13 +1669,17 @@
         refreshBuild();
         filled.push("SKU");
         if (buildAutoResolved) filled.push("recipe");
-        if (state.depthIdx != null) filled.push("depth");
+        if (state.depthIdx != null) {
+          filled.push(depthRoundedFrom != null
+            ? "depth (" + depthRoundedFrom + "″ rounded up to " + depthLabel() + ")"
+            : "depth");
+        }
       } else {
         // recipe not recognised (bespoke) → clear any leftover recipe so the quote box isn't stale
         state.sku = ""; state.buildId = ""; state.depthIdx = null; buildAutoResolved = false; $("sku").value = ""; refreshBuild();
       }
     }
-    var sz = sizeFromMeasurements(d.widthA, d.lengthB);
+    var sz = sizeFromMeasurements(d.widthA);
     if (sz) { state.size = sz; $("size").value = sz; filled.push("size"); }
     setDiagram(d.diagramUrl || "");
     setOrderLink(d.linkAttachment || "");
