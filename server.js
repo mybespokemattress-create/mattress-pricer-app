@@ -166,6 +166,32 @@ app.delete("/api/orders/:id", async (req, res) => {
   catch (e) { console.error(e); res.status(500).json({ error: "delete failed" }); }
 });
 
+// edit a saved order's prices — the owner correcting a mistyped invoiced price, or a calculated price
+// saved before a pricing fix (e.g. orders that went in as POA). Owner-gated like DELETE. Only calc and
+// agreed can change; the saved line breakdown stays exactly as it was when the order was priced.
+app.patch("/api/orders/:id", async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "no database" });
+  if (OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE) return res.status(403).json({ error: "locked" }); // supplier can't edit
+  if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "bad id" });
+  const b = req.body || {};
+  const sets = [], params = [];
+  for (const key of ["calc", "agreed"]) {
+    if (!(key in b)) continue;
+    const v = b[key]; // a number, or null to blank it
+    if (v !== null && (typeof v !== "number" || !isFinite(v) || v < 0)) return res.status(400).json({ error: "bad " + key });
+    params.push(v); sets.push(key + " = $" + params.length);
+  }
+  if (!sets.length) return res.status(400).json({ error: "nothing to change" });
+  params.push(req.params.id);
+  let where = "id = $" + params.length;
+  if (SUPPLIER !== "combined") { params.push(SUPPLIER); where += " AND supplier = $" + params.length; } // only this deployment's own orders
+  try {
+    const r = await pool.query(`UPDATE orders SET ${sets.join(", ")} WHERE ${where}`, params);
+    if (!r.rowCount) return res.status(404).json({ error: "order not found" });
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ error: "update failed" }); }
+});
+
 // ---- "Check price" supplier email (Resend HTTP API) ----
 // One click on a saved order emails THIS deployment's supplier asking for that order's price
 // breakdown. Owner-gated exactly like DELETE, so on the shared Southern tool only the owner can
