@@ -259,7 +259,7 @@
   .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; flex: 1 1 auto; min-width: 0; }
   .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); flex: 0 0 auto; white-space: nowrap; }
   .dm-spec { margin-top: 0; font-size: 14px; color: var(--ink); }
-  .dm-actions { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .dm-actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
   .dm-actions .btn { flex: 0 0 auto; padding: 10px 18px; font-size: 13px; }
   .dm-inp { width: 130px; padding: 7px 10px; font-size: 15px; text-align: right; font-weight: 700; }
   .dm-total .dm-inp { font-size: 18px; }
@@ -1822,6 +1822,9 @@
       '<button class="dm-close" id="dmClose" type="button" aria-label="Close">✕</button>' +
       '<div class="dm-order">' + esc(r.order) + '</div>' +
       invHtml +
+      '<div class="dm-actions" id="dmActions"><button class="btn primary" id="dmLoad" type="button">Load into calculator</button>' +
+        '<button class="btn ghost" id="dmEdit" type="button">Edit prices</button>' +
+        '<button class="btn ghost" id="dmPrint" type="button">Print this order</button></div>' +
       img +
       '<div class="dm-sec-h">Specification</div>' +
       '<div class="dm-sub dm-spec">' + esc(r.size) + ' · ' + esc(r.depth) + '</div>' +
@@ -1829,10 +1832,7 @@
       '<div class="dm-line"><span class="n">Calculated</span><span class="v" id="dmCalc">' + calc + '</span></div>' +
       deltaHtml +
       '<div class="dm-total"><span class="tl">Invoiced price</span><span class="tv" id="dmAgreed"' + (agreedColor ? ' style="color:' + agreedColor + '"' : '') + '>' + agreed + '</span></div>' +
-      '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>' +
-      '<div class="dm-actions" id="dmActions"><button class="btn primary" id="dmLoad" type="button">Load into calculator</button>' +
-        '<button class="btn ghost" id="dmEdit" type="button">Edit prices</button>' +
-        '<button class="btn ghost" id="dmPrint" type="button">Print this order</button></div>';
+      '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>';
     $("detailModal").hidden = false;
     $("dmClose").addEventListener("click", closeDetail);
     $("dmLoad").addEventListener("click", function () { loadIntoCalculator(i); });
@@ -1972,7 +1972,7 @@
     $("dmActions").innerHTML =
       '<button class="btn" id="dmSave" type="button">Save changes</button>' +
       '<button class="btn ghost" id="dmCancel" type="button">Cancel</button>';
-    $("dmActions").insertAdjacentHTML("afterend", '<div class="dm-edit-note" id="dmEditNote">The line breakdown above stays as it was saved — only these two prices change.</div>');
+    $("dmActions").insertAdjacentHTML("afterend", '<div class="dm-edit-note" id="dmEditNote">The line breakdown below stays as it was saved — only these two prices change.</div>');
     $("dmCancel").addEventListener("click", function () { openDetail(i); });
     $("dmSave").addEventListener("click", function () { saveDetailPrices(i); });
     ["dmCalcIn", "dmAgreedIn"].forEach(function (id) {
