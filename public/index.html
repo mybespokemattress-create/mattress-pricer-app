@@ -205,6 +205,9 @@
   .ac-item { padding: 10px 12px; cursor: pointer; font-size: 14px; color: var(--ink); border-bottom: 1px solid var(--line); }
   .ac-item:last-child { border-bottom: 0; }
   .ac-item:hover { background: var(--accent-wash); }
+  .edit-banner { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--accent-wash); border: 1px solid var(--accent); color: var(--ink); font-size: 13.5px; line-height: 1.45; }
+  .edit-banner .linklike { background: none; border: 0; padding: 0; margin: 0; font: inherit; font-weight: 700; color: var(--accent-deep); text-decoration: underline; cursor: pointer; }
+  .edit-banner .linklike:hover { color: var(--ink); }
   .order-status { margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--accent-deep); }
   .order-status.err { color: #b02a1f; }
   .order-status:empty { display: none; }
@@ -256,7 +259,7 @@
   .dm-total .tl { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 12px; letter-spacing: .06em; flex: 1 1 auto; min-width: 0; }
   .dm-total .tv { font-weight: 800; font-size: 22px; color: var(--ink); flex: 0 0 auto; white-space: nowrap; }
   .dm-spec { margin-top: 0; font-size: 14px; color: var(--ink); }
-  .dm-actions { margin-top: 20px; display: flex; gap: 10px; }
+  .dm-actions { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
   .dm-actions .btn { flex: 0 0 auto; padding: 10px 18px; font-size: 13px; }
   .dm-inp { width: 130px; padding: 7px 10px; font-size: 15px; text-align: right; font-weight: 700; }
   .dm-total .dm-inp { font-size: 18px; }
@@ -490,6 +493,7 @@
     <div class="card config">
       <div class="sec">
         <h2><span class="step">#</span> Invoice &amp; order</h2>
+        <div class="edit-banner" id="editBanner" hidden></div>
         <label class="fld">
           <span class="lab">Invoice number <span class="hint">stays set while you work an invoice</span></span>
           <input type="text" id="invoiceNo" class="txtin" placeholder="e.g. INV-1234" autocomplete="off">
@@ -1145,6 +1149,7 @@
   var depthRoundedFrom = null; // set by refreshDepth when the code's depth wasn't on the grid and we charged the next depth up
   var currentCode = "", currentCodeWatch = null; // the pulled order's supplier code + any watch-word (e.g. Imperial→tufting)
   var currentQuoted = null; // { price, note } when the order carries a manually-agreed quoted (bespoke) price
+  var editing = null; // { id, ts, order } while the form holds a saved order loaded back in — saving then UPDATES it
 
   // Show the raw supplier code only when it ISN'T already represented by the auto-resolved recipe chip
   // (or when it carries a watch-word flag like tufting). Keeps section 2 to just "Depth" once the recipe is known.
@@ -1390,12 +1395,28 @@
         calc: calc, agreed: (isNaN(agreed) ? null : agreed)
       });
     }
-    var save = apiOn
-      ? fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }).then(function (r) { if (!r.ok) throw 0; })
-      : (function () { var a = loadLocal(); a.unshift(rec); saveLocal(a); return Promise.resolve(); })();
+    var ed = editing, save;
+    if (ed) {
+      // a saved order loaded back in → overwrite that same record (keeps its place in the log)
+      save = apiOn
+        ? fetch("/api/orders/" + ed.id, {
+            method: "PUT",
+            headers: ownerCode ? { "Content-Type": "application/json", "x-owner-code": ownerCode } : { "Content-Type": "application/json" },
+            body: JSON.stringify(rec)
+          }).then(function (r) { if (!r.ok) throw 0; })
+        : (function () {
+            var a = loadLocal(), j = a.map(function (x) { return x.ts; }).indexOf(ed.ts);
+            if (j < 0) return Promise.reject();
+            rec.ts = ed.ts; a[j] = rec; saveLocal(a); return Promise.resolve();
+          })();
+    } else {
+      save = apiOn
+        ? fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }).then(function (r) { if (!r.ok) throw 0; })
+        : (function () { var a = loadLocal(); a.unshift(rec); saveLocal(a); return Promise.resolve(); })();
+    }
     save.then(function () {
       dirty = false; $("clearErr").hidden = true;
-      flash(btn, "Saved ✓"); flash($("mbarSave"), "Saved ✓");
+      flash(btn, ed ? "Updated ✓" : "Saved ✓"); flash($("mbarSave"), ed ? "Updated ✓" : "Saved ✓");
       return refreshOrders();
     }).then(function () {
       if (andNext) clearForm(true); // keep the invoice fields set, clear the rest, ready for the next order
@@ -1412,6 +1433,7 @@
       return;
     }
     $("clearErr").hidden = true;
+    editing = null; updateEditUi();
     $("orderNo").value = ""; $("orderNo").classList.remove("err");
     $("orderStatus").textContent = ""; $("orderStatus").className = "order-status";
     setDiagram(""); setOrderLink(""); setOrderFlags(null); currentCode = ""; currentCodeWatch = null; currentQuoted = null; codeDepthInches = null; depthRoundedFrom = null; updateQuoteHeader();
@@ -1808,12 +1830,131 @@
       deltaHtml +
       '<div class="dm-total"><span class="tl">Invoiced price</span><span class="tv" id="dmAgreed"' + (agreedColor ? ' style="color:' + agreedColor + '"' : '') + '>' + agreed + '</span></div>' +
       '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>' +
-      '<div class="dm-actions" id="dmActions"><button class="btn ghost" id="dmEdit" type="button">Edit prices</button>' +
+      '<div class="dm-actions" id="dmActions"><button class="btn primary" id="dmLoad" type="button">Load into calculator</button>' +
+        '<button class="btn ghost" id="dmEdit" type="button">Edit prices</button>' +
         '<button class="btn ghost" id="dmPrint" type="button">Print this order</button></div>';
     $("detailModal").hidden = false;
     $("dmClose").addEventListener("click", closeDetail);
+    $("dmLoad").addEventListener("click", function () { loadIntoCalculator(i); });
     $("dmEdit").addEventListener("click", function () { editDetailPrices(i); });
     $("dmPrint").addEventListener("click", function () { renderPrintDoc(r); window.print(); });
+  }
+
+  // Load a saved order back into the calculator so it can be changed the normal way. A saved order keeps
+  // no dropdown state, but its price lines name everything: the base line is "Base — Sku · recipe", each
+  // extra line carries its quantity / option in the note, and carriage has its own line. Anything that
+  // can't be matched to today's catalogue is listed so it can be set by hand before saving.
+  function loadIntoCalculator(i) {
+    var r = ordersCache[i]; if (!r) return;
+    if (dirty && window.__lastQuote && !window.confirm("The calculator has an unsaved quote. Replace it with order " + r.order + "?")) return;
+    closeDetail();
+    dirty = false; clearForm(false);
+
+    var lines = r.lines || [], missed = [];
+    $("orderNo").value = r.order || "";
+    $("invoiceNo").value = r.invoice || "";
+    $("invoiceTotal").value = r.invoiceTotal == null ? "" : Number(r.invoiceTotal);
+    $("boxesQty").value = r.boxQty == null ? "" : Number(r.boxQty);
+    $("agreed").value = r.agreed == null ? "" : Number(r.agreed); // always the saved figure, so a changed recipe can't silently move it
+    setDiagram(r.diagram || "");
+
+    var qLine = lines.filter(function (l) { return l.name === "Quoted price (bespoke)"; })[0];
+    if (qLine) currentQuoted = { price: Number(qLine.val), note: qLine.note || "" };
+
+    // recipe: try the base line first, then the model text (quoted orders append " · quoted")
+    var base = lines.filter(function (l) { return /^Base — /.test(l.name || ""); })[0];
+    var wanted = [base ? base.name.replace(/^Base — /, "") : null, String(r.model || "").replace(/ · quoted$/, "")];
+    var match = null;
+    SKUS.forEach(function (sk) {
+      sk.builds.forEach(function (b) { if (!match && wanted.indexOf(sk.name + " · " + b.label) !== -1) match = { sku: sk, build: b }; });
+    });
+    if (match) {
+      state.sku = match.sku.id; state.buildId = match.build.id; $("sku").value = match.sku.id;
+      var di = match.build.depths.indexOf(r.depth);
+      state.depthIdx = di >= 0 ? di : null;
+      refreshBuild();
+      if (state.depthIdx == null) missed.push("depth");
+    } else if (!qLine || (r.model && !/^Bespoke/.test(r.model))) {
+      missed.push("foam recipe");
+    }
+
+    var size = SIZES.filter(function (z) { return z.label === r.size; })[0];
+    if (size) { state.size = size.key; $("size").value = size.key; }
+    else if (match) missed.push("size" + (r.size && r.size !== "—" ? " (was " + r.size + ")" : ""));
+
+    lines.forEach(function (l) {
+      var name = l.name || "";
+      if (/^Base — /.test(name) || l === qLine) return;
+      var carr = name.match(/^Carriage — (.+)$/);
+      if (carr) {
+        var key = Object.keys(CARRIAGE).filter(function (k) { return CARRIAGE[k].label === carr[1]; })[0];
+        if (key) { state.carriage = key; $("carriage").value = key; } else missed.push(name);
+        return;
+      }
+      if (name === "Carriage (manual)") {
+        state.carriage = "manual"; state.carriageAmt = String(Number(l.val) || "");
+        $("carriage").value = "manual"; $("carriageManual").hidden = false; $("carriageAmt").value = state.carriageAmt;
+        return;
+      }
+      var ex = EXTRAS.filter(function (e) { return e.name === name; })[0];
+      if (!ex) { missed.push(name); return; }
+      var v, ok;
+      if (ex.type === "qty") { v = parseInt(l.note, 10); if (!(v > 0) && ex.price) v = Math.round(Number(l.val) / ex.price); ok = v > 0; }
+      else if (ex.type === "steps") { v = parseInt(l.note, 10); ok = v > 0; }
+      else if (ex.type === "choice") { v = ex.options.map(function (o) { return o.label; }).indexOf(l.note); ok = v >= 0; }
+      else if (ex.type === "misc") { v = { desc: l.note || "", amt: Number(l.val) || 0 }; ok = v.amt > 0; }
+      else { v = true; ok = true; }
+      if (!ok) { missed.push(name); return; }
+      setExtraControl(ex, v);
+    });
+
+    editing = { id: r.id, ts: r.ts, order: r.order };
+    updateEditUi(); updateQuoteHeader(); refreshSupplierCode();
+    render(); updateBatchNote();
+    dirty = false;
+
+    // say what came back, and whether today's grid prices it differently from when it was saved
+    var st = $("orderStatus"), msg = "Loaded saved order " + esc(r.order) + ".";
+    var q = window.__lastQuote;
+    if (q && !q.r.poa && !qLine) {
+      if (r.calc == null) msg += " It now calculates at <b>" + money(q.r.total) + "</b> (saved without a calculated price).";
+      else if (Math.abs(priceDiff(q.r.total, r.calc)) >= 0.005) msg += " It now calculates at <b>" + money(q.r.total) + "</b> (saved as " + money(r.calc) + ").";
+    }
+    if (missed.length) {
+      st.className = "order-status err";
+      st.innerHTML = msg + " Couldn't restore: <b>" + esc(missed.join(", ")) + "</b> — set " + (missed.length === 1 ? "it" : "these") + " by hand before updating.";
+    } else {
+      st.className = "order-status";
+      st.innerHTML = msg + " Change what you need, then Update.";
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  // Put one extra's control (and state) into a given value, exactly as if it had been picked by hand.
+  function setExtraControl(ex, v) {
+    var row = $("extras").querySelector('.ex[data-id="' + ex.id + '"]'); if (!row) return;
+    var qsel = row.querySelector("select.qty"), csel = row.querySelector("select.choice"), tog = row.querySelector("input.tog");
+    var mdesc = row.querySelector(".misc-desc"), mamt = row.querySelector(".misc-amt");
+    if (qsel) qsel.value = String(v);
+    if (csel) csel.value = String(v);
+    if (tog) tog.checked = !!v;
+    if (mdesc) mdesc.value = v.desc || "";
+    if (mamt) mamt.value = v.amt || "";
+    state.extras[ex.id] = v;
+    row.classList.add("active");
+  }
+  function updateEditUi() {
+    var b = $("editBanner");
+    if (editing) {
+      b.innerHTML = '✏️ <b>Editing saved order ' + esc(editing.order) + '</b> — saving updates it instead of adding a new one. ' +
+        '<button type="button" class="linklike" id="stopEditBtn">Stop editing</button>';
+      b.hidden = false;
+      $("stopEditBtn").addEventListener("click", function () {
+        if (dirty && !window.confirm("Discard your changes to " + editing.order + "? The saved order stays as it was.")) return;
+        dirty = false; clearForm(false);
+      });
+    } else { b.hidden = true; b.innerHTML = ""; }
+    [["saveBtn", "Update Order", "Save Order"], ["saveNextBtn", "Update & Next order →", "Save & Next order →"], ["mbarSave", "Update", "Save"]]
+      .forEach(function (x) { var el = $(x[0]); delete el.dataset.label; el.textContent = editing ? x[1] : x[2]; }); // drop flash()'s cached label too
   }
 
   // Correct a saved order's prices in place — a mistyped invoiced price, or a calculated price saved

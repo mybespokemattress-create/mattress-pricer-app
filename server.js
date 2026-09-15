@@ -166,6 +166,34 @@ app.delete("/api/orders/:id", async (req, res) => {
   catch (e) { console.error(e); res.status(500).json({ error: "delete failed" }); }
 });
 
+// re-save an order that was loaded back into the calculator and changed there. Replaces everything the
+// form produces (recipe, size, depth, lines, prices, invoice fields) but keeps the row's id, supplier and
+// created_at, so it stays where it was in the log rather than appearing as a new order. Owner-gated like DELETE.
+app.put("/api/orders/:id", async (req, res) => {
+  if (!pool) return res.status(503).json({ error: "no database" });
+  if (OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE) return res.status(403).json({ error: "locked" });
+  if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "bad id" });
+  const b = req.body || {};
+  if (!b.order) return res.status(400).json({ error: "order number required" });
+  const params = [b.order, b.model || null, b.size || null, b.depth || null,
+    b.calc == null ? null : b.calc, b.agreed == null ? null : b.agreed,
+    b.carriage || null, JSON.stringify(b.lines || []), b.diagram || null,
+    b.invoice || null,
+    (b.invoiceTotal == null || b.invoiceTotal === "") ? null : b.invoiceTotal,
+    (b.boxQty == null || b.boxQty === "") ? null : b.boxQty,
+    req.params.id];
+  let where = "id = $13";
+  if (SUPPLIER !== "combined") { params.push(SUPPLIER); where += " AND supplier = $14"; } // only this deployment's own orders
+  try {
+    const r = await pool.query(
+      `UPDATE orders SET order_no = $1, model = $2, size = $3, depth = $4, calc = $5, agreed = $6, carriage = $7,
+              lines = $8, diagram = $9, invoice = $10, invoice_total = $11, box_qty = $12
+        WHERE ${where}`, params);
+    if (!r.rowCount) return res.status(404).json({ error: "order not found" });
+    res.json({ ok: true, id: Number(req.params.id) });
+  } catch (e) { console.error(e); res.status(500).json({ error: "update failed" }); }
+});
+
 // edit a saved order's prices — the owner correcting a mistyped invoiced price, or a calculated price
 // saved before a pricing fix (e.g. orders that went in as POA). Owner-gated like DELETE. Only calc and
 // agreed can change; the saved line breakdown stays exactly as it was when the order was priced.
