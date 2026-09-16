@@ -637,7 +637,7 @@
 
         <div class="guide-sec">4 · Check &amp; reconcile</div>
         <p class="guide-p">In the log, the <b>Invoiced</b> price shows <span style="color:var(--good);font-weight:700">green</span> when it matches the calculated (or quoted) price and <span style="color:#c0392b;font-weight:700">red</span> when it doesn't. <br>
-        Enter the <b>Invoice total</b> (the gross figure inc VAT) and the running note tells you if the whole invoice balances — it adds the supplier's extra line (<b>Southern:</b> automatic 12% foam surcharge · <b>Mattressshire:</b> boxes at £8 each) plus 20% VAT. <br>
+        Enter the <b>Invoice total</b> (the gross figure inc VAT) and the running note tells you if the whole invoice balances — it adds the supplier's extra line (<b>Southern:</b> automatic foam surcharge — 8% on invoices started from 16 Sep 2026, 12% before · <b>Mattressshire:</b> boxes at £8 each) plus 20% VAT. <br>
         <b>🧮 Calculate invoice</b> lays the whole thing out like the paper invoice — every line, the extra, net, VAT and total.</p>
 
         <div class="guide-sec">Buttons</div>
@@ -750,12 +750,33 @@
       if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; }
       if (r.agreed != null && r.calc != null) { diffSum += priceDiff(r.agreed, r.calc); bothCount++; } // invoiced - calculated, to the penny
     });
-    var surcharge = INV.surchargePct ? mattressNet * INV.surchargePct : 0;
+    var pct = surchargePctFor(items);
+    var surcharge = pct ? mattressNet * pct : 0;
     var boxes = (INV.boxPrice && boxQty) ? boxQty * INV.boxPrice : 0;
     var net = mattressNet + surcharge + boxes;
     var vat = net * (INV.vatPct || 0);
     return { count: (items || []).length, hasInv: hasInv, mattressNet: mattressNet, diffSum: diffSum, bothCount: bothCount,
-             surcharge: surcharge, boxes: boxes, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
+             surcharge: surcharge, surchargePct: pct, boxes: boxes, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
+  }
+
+  // Southern's foam surcharge has changed over time (see surchargeRates in catalog.js, newest first). An
+  // invoice named in a rate's `invoices` list gets that rate outright; otherwise it uses the rate in force on
+  // the day its FIRST order was saved, so an old invoice still reconciles at the rate it was billed at.
+  // Nothing saved yet → today's rate. A single surchargePct still works too.
+  function surchargePctFor(items) {
+    var rates = INV.surchargeRates;
+    if (!rates || !rates.length) return INV.surchargePct || 0;
+    var key = invKey((items || []).length ? items[0].invoice : "");
+    for (var n = 0; key && n < rates.length; n++) {
+      if ((rates[n].invoices || []).map(invKey).indexOf(key) !== -1) return rates[n].pct;
+    }
+    var first = null;
+    (items || []).forEach(function (r) { var t = new Date(r.ts).getTime(); if (!isNaN(t) && (first == null || t < first)) first = t; });
+    if (first == null) first = Date.now();
+    for (var k = 0; k < rates.length; k++) {
+      if (!rates[k].from || first >= new Date(rates[k].from + "T00:00:00").getTime()) return rates[k].pct; // local midnight
+    }
+    return 0;
   }
 
   // Who came out ahead on an invoice's price discrepancies. diffSum = sum(invoiced - calculated):
@@ -1162,6 +1183,11 @@
   function loadLocal() { try { var s = localStorage.getItem(QUOTES_KEY); return s ? JSON.parse(s) : []; } catch (e) { return []; } }
   function saveLocal(a) { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(a)); } catch (e) {} }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  // Invoice numbers are typed or pasted (often from a PDF, which can smuggle in zero-width characters).
+  // cleanInvoice is what gets saved and shown; invKey is what two numbers are compared by, so "42452",
+  // " 42452", "42452\u200b" and "inv-9" / "INV-9" all land in the same invoice.
+  function cleanInvoice(v) { return String(v == null ? "" : v).replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim(); }
+  function invKey(v) { return cleanInvoice(v).replace(/\s+/g, "").toUpperCase(); }
   function flash(btn, msg) { var old = btn.dataset.label || btn.textContent; btn.dataset.label = old; btn.textContent = msg; setTimeout(function () { btn.textContent = old; }, 1500); }
 
   function initStore() {
@@ -1371,7 +1397,7 @@
     var bqRaw = $("boxesQty").value.trim();
     var common = {
       order: order, ts: new Date().toISOString(), carriage: carriageLabel(),
-      invoice: $("invoiceNo").value.trim() || null,
+      invoice: cleanInvoice($("invoiceNo").value) || null,
       invoiceTotal: itRaw === "" ? null : parseFloat(itRaw),
       boxQty: bqRaw === "" ? null : parseFloat(bqRaw),
       diagram: currentDiagram || null
@@ -1462,7 +1488,7 @@
     var el = $("batchNote"); if (!el) return;
     var inv = ($("invoiceNo").value || "").trim();
     if (!inv) { el.hidden = true; el.innerHTML = ""; return; }
-    var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
+    var items = (ordersCache || []).filter(function (r) { return invKey(r.invoice) !== "" && invKey(r.invoice) === invKey(inv); });
     var boxQty = null, invTotal = null;
     items.forEach(function (r) { if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty); if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal); });
     var bqRaw = ($("boxesQty").value || "").trim(); if (bqRaw !== "") boxQty = parseFloat(bqRaw);
@@ -1495,7 +1521,7 @@
     }
     var when = new Date(r.ts).toLocaleString();
     var carr = (r.carriage && r.carriage !== "None") ? ' · ' + esc(r.carriage) : '';
-    var inv = r.invoice ? '<b>' + esc(r.invoice) + '</b>' : '<span style="color:var(--muted)">—</span>';
+    var inv = cleanInvoice(r.invoice) ? '<b>' + esc(cleanInvoice(r.invoice)) + '</b>' : '<span style="color:var(--muted)">—</span>';
     var member = groupKey != null;
     // ✉ = ask the supplier for this order's price breakdown (owner only, and only once configured)
     var waiting = pendingByOrder[String(r.order)];
@@ -1524,19 +1550,22 @@
     $("savedCount").textContent = "(" + arr.length + ")";
 
     // group consecutive-by-invoice, preserving the newest-first order
-    var groups = [], byInv = {};
+    // Group by invoice (compared by invKey), newest-first. Orders saved WITHOUT an invoice number share one
+    // collapsible "No invoice number" group — left loose, they sat under whichever invoice header came
+    // before them and could never be hidden.
+    var groups = [], byInv = {}, noInv = null;
     arr.forEach(function (r, i) {
-      var key = (r.invoice && String(r.invoice).trim()) ? String(r.invoice).trim() : null;
-      if (key == null) { groups.push({ invoice: null, items: [{ r: r, i: i }] }); return; }
-      if (!byInv[key]) { byInv[key] = { invoice: key, items: [] }; groups.push(byInv[key]); }
+      var key = invKey(r.invoice);
+      if (!key) {
+        if (!noInv) { noInv = { invoice: null, items: [] }; groups.push(noInv); }
+        noInv.items.push({ r: r, i: i });
+        return;
+      }
+      if (!byInv[key]) { byInv[key] = { invoice: cleanInvoice(r.invoice), items: [] }; groups.push(byInv[key]); }
       byInv[key].items.push({ r: r, i: i });
     });
 
     $("savedBody").innerHTML = groups.map(function (g, gi) {
-      // loose rows only when there's no invoice number; any invoice (even a single order) gets a header
-      if (g.invoice == null) {
-        return g.items.map(function (it) { return rowHtml(it.r, it.i, null); }).join("");
-      }
       var mism = 0, invTotal = null, boxQty = null, itemsArr = [];
       g.items.forEach(function (it) {
         var r = it.r; itemsArr.push(r);
@@ -1544,12 +1573,21 @@
         if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal);
         if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty);
       });
-      var c = computeInvoice(itemsArr, boxQty || 0);
       var n = g.items.length;
+      var members = g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
       // mismatch flag + winner chip are owner-only (hidden from the supplier)
       var flag = isLocked() ? "" : ' · ' + (mism > 0
         ? '<span class="gh-off">⚠ ' + mism + ' mismatch' + (mism > 1 ? 'es' : '') + '</span>'
         : '<span class="gh-ok">✓ all match</span>');
+      if (g.invoice == null) {
+        // no invoice → no invoice totals to show; point at the fix instead
+        return '<tr class="grouphead" data-grp="' + gi + '"><td colspan="8">' +
+          '<span class="gh-caret">▸</span><span class="gh-inv">No invoice number</span> ' +
+          '<span class="gh-meta">· ' + n + (n === 1 ? ' item' : ' items') +
+          (isLocked() ? '' : ' · load one into the calculator to add its invoice number') + '</span>' + flag +
+          '</td></tr>' + members;
+      }
+      var c = computeInvoice(itemsArr, boxQty || 0);
       var totalBit = ' · net ' + money(c.net) + (INV.vatPct ? ' · ' + money(c.gross) + ' inc VAT' : '');
       if (invTotal != null && c.hasInv) {
         var diff = Math.round((invTotal - c.gross) * 100) / 100;
@@ -1563,7 +1601,7 @@
         '<span class="gh-caret">▸</span><span class="gh-inv">Invoice ' + esc(g.invoice) + '</span> ' +
         '<span class="gh-meta">· ' + n + (n === 1 ? ' item' : ' items') + totalBit + '</span>' + flag + winChip +
         '</td></tr>';
-      return header + g.items.map(function (it) { return rowHtml(it.r, it.i, gi); }).join("");
+      return header + members;
     }).join("");
 
     // expand/collapse a batch
@@ -2011,7 +2049,7 @@
   function openInvoiceSummary() {
     var inv = ($("invoiceNo").value || "").trim();
     if (!inv) { flash($("calcInvoiceBtn"), "Enter an invoice number first"); return; }
-    var items = (ordersCache || []).filter(function (r) { return r.invoice && String(r.invoice).trim() === inv; });
+    var items = (ordersCache || []).filter(function (r) { return invKey(r.invoice) !== "" && invKey(r.invoice) === invKey(inv); });
     if (!items.length) { flash($("calcInvoiceBtn"), "No saved orders for this invoice yet"); return; }
     var boxQty = null, invTotal = null;
     items.forEach(function (r) { if (boxQty == null && r.boxQty != null) boxQty = Number(r.boxQty); if (invTotal == null && r.invoiceTotal != null) invTotal = Number(r.invoiceTotal); });
@@ -2022,7 +2060,7 @@
       return '<div class="dm-line"><span class="n">' + esc(r.order) + ' <small style="color:var(--muted)">' + esc(r.model) + '</small></span><span class="v">' + (r.agreed == null ? '—' : money(r.agreed)) + '</span></div>';
     }).join("");
     var extraLine = "";
-    if (c.surcharge > 0) extraLine = '<div class="dm-line"><span class="n">' + esc(INV.surchargeName || "Surcharge") + '</span><span class="v">' + money(c.surcharge) + '</span></div>';
+    if (c.surcharge > 0) extraLine = '<div class="dm-line"><span class="n">' + esc((INV.surchargeName || "Surcharge") + " (" + Math.round(c.surchargePct * 100) + "%)") + '</span><span class="v">' + money(c.surcharge) + '</span></div>';
     else if (c.boxes > 0) extraLine = '<div class="dm-line"><span class="n">' + esc(INV.boxName || "Boxes") + ' (' + c.boxQty + ' × ' + money(INV.boxPrice) + ')</span><span class="v">' + money(c.boxes) + '</span></div>';
     var netLine = '<div class="dm-line"><span class="n"><b>Net subtotal</b></span><span class="v"><b>' + money(c.net) + '</b></span></div>';
     var vatLine = INV.vatPct ? '<div class="dm-line"><span class="n">VAT ' + Math.round(INV.vatPct * 100) + '%</span><span class="v">' + money(c.vat) + '</span></div>' : "";
@@ -2063,7 +2101,7 @@
       size: q.size.label, depth: q.depth, carriage: carriageLabel(),
       lines: q.r.lines, calc: q.r.poa ? null : q.r.total,
       agreed: av === "" ? null : parseFloat(av),
-      invoice: $("invoiceNo").value.trim() || null,
+      invoice: cleanInvoice($("invoiceNo").value) || null,
       poa: q.r.poa, known: q.r.known, diagram: currentDiagram || null
     };
   }

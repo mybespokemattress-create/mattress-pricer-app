@@ -108,10 +108,17 @@ const MATTRESSSHIRE_EXTRAS = [
 ];
 
 // Invoice reconciliation model per supplier. The calculator prices in NET; the supplier's
-// invoice adds an extra line then VAT. Southern: a foam surcharge = surchargePct of the mattress
-// lines (auto). Mattressshire: boxes = qty x boxPrice (operator enters qty). Then vatPct on the net.
+// invoice adds an extra line then VAT. Southern: a foam surcharge = a % of the mattress lines (auto).
+// Mattressshire: boxes = qty x boxPrice (operator enters qty). Then vatPct on the net.
+// Southern's surcharge rate changes over time, so surchargeRates is a schedule, NEWEST FIRST. An invoice
+// named in a rate's `invoices` list always gets that rate; otherwise it uses the first rate whose `from`
+// date is on or before the day its first order was saved (from: null = the rate before any listed change).
+// Add a new row at the top when the rate changes again.
+//   8% from 16 Sep 2026 — invoice 42452 was the first billed at it, though some of its orders were saved earlier.
 const SOUTHERN      = { key: "southern",      name: "Southern Production",     badge: "#0c7c6f", skus: SOUTHERN_SKUS,      extras: SOUTHERN_EXTRAS,
-                        invoice: { vatPct: 0.20, surchargePct: 0.12, surchargeName: "Foam surcharge (12%)" } };
+                        invoice: { vatPct: 0.20, surchargeName: "Foam surcharge",
+                                   surchargeRates: [ { from: "2026-09-16", pct: 0.08, invoices: ["42452"] },
+                                                     { from: null,         pct: 0.12 } ] } };
 const MATTRESSSHIRE = { key: "mattressshire", name: "Mattressshire Production", badge: "#7c3aed", skus: MATTRESSSHIRE_SKUS, extras: MATTRESSSHIRE_EXTRAS,
                         invoice: { vatPct: 0.20, boxPrice: 8, boxName: "Boxes" } };
 
