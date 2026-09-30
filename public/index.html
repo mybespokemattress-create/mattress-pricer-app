@@ -137,7 +137,7 @@
   .ex .qty:focus, .ex .choice:focus, .ex .tog:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   @media (max-width: 480px) { .ex .ctrl { width: 140px; } .ex .choice { max-width: 140px; } .ex .price { min-width: 72px; } }
   /* miscellaneous free line */
-  .ex.misc .meta { flex: 0 0 auto; }
+  .ex.misc .meta { flex: 0 1 165px; }
   .ex.misc .ctrl { flex: 1 1 auto; width: auto; gap: 8px; }
   .ex.misc .price { display: none; }
   .misc-desc, .misc-amt { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 8px; }
@@ -919,7 +919,7 @@
   }
 
   // --- order persistence (survives refresh) ---
-  var ORDER_KEY = "mp-extra-order-v1";
+  var ORDER_KEY = "mp-extra-order-v2"; // v2: the free-text charge moved to the top of the default order
   function loadOrder() { try { var s = localStorage.getItem(ORDER_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
   function saveOrder() {
     try {
@@ -971,8 +971,8 @@
 
       var control, priceTxt;
       if (ex.type === "misc") {
-        control = '<input type="text" class="misc-desc" placeholder="What is it?" aria-label="Miscellaneous description">' +
-                  '<input type="number" class="misc-amt num" step="0.01" min="0" inputmode="decimal" placeholder="£" aria-label="Miscellaneous amount">';
+        control = '<input type="text" class="misc-desc" placeholder="What was added?" aria-label="Description of the extra agreed charge">' +
+                  '<input type="number" class="misc-amt num" step="0.01" min="0" inputmode="decimal" placeholder="£" aria-label="Amount of the extra agreed charge">';
         priceTxt = "";
       } else if (ex.type === "qty") {
         var mx = ex.max || 8, opts = "";
@@ -1934,7 +1934,7 @@
         $("carriage").value = "manual"; $("carriageManual").hidden = false; $("carriageAmt").value = state.carriageAmt;
         return;
       }
-      var ex = EXTRAS.filter(function (e) { return e.name === name; })[0];
+      var ex = EXTRAS.filter(function (e) { return e.name === name || (e.alt || []).indexOf(name) !== -1; })[0];
       if (!ex) { missed.push(name); return; }
       var v, ok;
       if (ex.type === "qty") { v = parseInt(l.note, 10); if (!(v > 0) && ex.price) v = Math.round(Number(l.val) / ex.price); ok = v > 0; }

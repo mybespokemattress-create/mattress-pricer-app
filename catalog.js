@@ -80,6 +80,7 @@ const MATTRESSSHIRE_SKUS = [
 // types: "qty" (price × quantity), "steps" (price looked up by quantity from prices[]),
 //        "choice" (pick one option), "toggle" (on/off), "misc" (free description + amount)
 const SOUTHERN_EXTRAS = [
+  { id: "misc",        name: "Extra agreed charge",  sub: "added after the order", type: "misc", alt: ["Miscellaneous"] },
   { id: "cornercut",   name: "Corner cut-off",                     price: 12, type: "qty", unit: "per corner", max: 8 },
   { id: "roundcorner", name: "Round corner",                       price: 15, type: "qty", unit: "per corner", max: 8 },
   { id: "threestep",   name: "3-step cut",                         price: 40, type: "qty", unit: "each", sub: "“words cannot explain”", max: 8 },
@@ -91,11 +92,11 @@ const SOUTHERN_EXTRAS = [
   { id: "darkgrey",    name: "Dark-grey fabric",                   price: 15, type: "toggle", sub: "up to king size" },
   { id: "chamfer",     name: "Chamfer cut",                        price: 25, type: "qty", unit: "per chamfer", sub: "boat mattresses etc.", max: 8 },
   { id: "underside",   name: "Underside / undercut",               price: 40, type: "qty", unit: "per undercut", max: 8 },
-  { id: "circular",    name: "Circular mattress",                   price: 60, type: "toggle", sub: "pro-rata + £60" },
-  { id: "misc",        name: "Miscellaneous",                       type: "misc" }
+  { id: "circular",    name: "Circular mattress",                   price: 60, type: "toggle", sub: "pro-rata + £60" }
 ];
 
 const MATTRESSSHIRE_EXTRAS = [
+  { id: "misc",        name: "Extra agreed charge",  sub: "added after the order", type: "misc", alt: ["Miscellaneous"] },
   // Cuts are priced by the NUMBER of cuts (prices[qty]) — index 0 = none.
   { id: "cuts",         name: "Cuts",                              type: "steps", sub: "priced by number of cuts",
     prices: [0, 20, 30, 40, 50, 60, 70, 80, 90, 100] },
@@ -103,8 +104,7 @@ const MATTRESSSHIRE_EXTRAS = [
   { id: "tufting",      name: "Tufting",                           price: 12.5, type: "qty", unit: "each", max: 8 },
   { id: "ziplink",      name: "Zip & link",                        price: 45,   type: "qty", unit: "each", max: 8 },
   { id: "fabriclink",   name: "Fabric link",                       price: 35,   type: "qty", unit: "each", max: 8 },
-  { id: "extracover2pc",name: "Extra cover (2-piece mattress)",    price: 20,   type: "qty", unit: "each", max: 8 },
-  { id: "misc",         name: "Miscellaneous",                     type: "misc" }
+  { id: "extracover2pc",name: "Extra cover (2-piece mattress)",    price: 20,   type: "qty", unit: "each", max: 8 }
 ];
 
 // Invoice reconciliation model per supplier. The calculator prices in NET; the supplier's
