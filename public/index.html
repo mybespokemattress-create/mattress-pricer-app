@@ -14,7 +14,7 @@
     --accent: #12a594;
     --accent-deep: #0c7c6f;
     --accent-wash: #e7f5f2;
-    --good: #1a874e;
+    --good: #1a874e; --warn: #8a5200; --warn-bg: #fff7ec; --warn-line: #f0c48a;
     --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07);
     --radius: 14px;
     color-scheme: light;
@@ -25,19 +25,19 @@
       --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
       --line: #26303f; --line-strong: #33404f;
       --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f;
-      --good: #34d399;
+      --good: #34d399; --warn: #fbbf24; --warn-bg: #2a2112; --warn-line: #5a4420;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
       color-scheme: dark;
     }
   }
   :root[data-theme="light"] {
     --bg: #eef2f5; --panel: #ffffff; --panel-2: #f6f9fb; --ink: #14163d; --body: #3a3f52; --muted: #6b7280;
-    --line: #e2e8ee; --line-strong: #cdd7e0; --accent: #12a594; --accent-deep: #0c7c6f; --accent-wash: #e7f5f2; --good: #1a874e;
+    --line: #e2e8ee; --line-strong: #cdd7e0; --accent: #12a594; --accent-deep: #0c7c6f; --accent-wash: #e7f5f2; --good: #1a874e; --warn: #8a5200; --warn-bg: #fff7ec; --warn-line: #f0c48a;
     --shadow: 0 1px 2px rgba(20,22,61,.06), 0 8px 28px rgba(20,22,61,.07); color-scheme: light;
   }
   :root[data-theme="dark"] {
     --bg: #0e1320; --panel: #161d2b; --panel-2: #1b2434; --ink: #eef1f7; --body: #c3cad8; --muted: #8b95a7;
-    --line: #26303f; --line-strong: #33404f; --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f; --good: #34d399;
+    --line: #26303f; --line-strong: #33404f; --accent: #2dd4bf; --accent-deep: #5fe6d3; --accent-wash: #16332f; --good: #34d399; --warn: #fbbf24; --warn-bg: #2a2112; --warn-line: #5a4420;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35); color-scheme: dark;
   }
 
@@ -311,6 +311,12 @@
   .rowmail.awaiting { color: #b7791f; }               /* breakdown already asked for, no reply yet */
   /* Outstanding price-breakdown requests */
   /* 20px matches .saved-head / .saved-note — .card itself carries no padding */
+  /* Chased price breakdowns ride ABOVE the calculator in amber — at the foot of the page, in the
+     same white as every other card, they were being scrolled past and missed. */
+  .pending-card { background: var(--warn-bg); border-color: var(--warn-line); border-left: 4px solid var(--warn); }
+  .pending-card .saved-head h2 { color: var(--warn); }
+  .pending-card .saved-note { color: var(--warn); }
+  .pending-card .preq { border-top-color: var(--warn-line); }
   #pendingList { padding: 0 20px 14px; }
   .preq { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
   .preq-main { flex: 1 1 auto; min-width: 0; }
@@ -488,6 +494,14 @@
     <strong>Prices from your production schedule.</strong> Pick the <b>foam recipe</b> and the tool narrows everything else down to avoid input error. Working version for review.
   </div>
 
+  <div class="card pending-card" id="pendingCard" style="display:none; margin-bottom:22px;">
+    <div class="saved-head">
+      <h2>Awaiting supplier reply <span id="pendingCount" style="color:var(--muted); font-weight:600;"></span></h2>
+    </div>
+    <div class="saved-note">Price breakdowns you've asked for. Tick one off when the supplier answers.</div>
+    <div id="pendingList"></div>
+  </div>
+
   <div class="layout">
     <!-- CONFIG -->
     <div class="card config">
@@ -650,14 +664,6 @@
         </div>
       </div>
     </details>
-  </div>
-
-  <div class="card" id="pendingCard" style="display:none; margin-top:22px;">
-    <div class="saved-head">
-      <h2>Awaiting supplier reply <span id="pendingCount" style="color:var(--muted); font-weight:600;"></span></h2>
-    </div>
-    <div class="saved-note">Price breakdowns you've asked for. Tick one off when the supplier answers.</div>
-    <div id="pendingList"></div>
   </div>
 
   <div class="card" id="savedCard" style="display:none; margin-top:22px;">
