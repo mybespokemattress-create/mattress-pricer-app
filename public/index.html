@@ -323,6 +323,8 @@
   .preq-meta { color: var(--muted); font-size: 12.5px; }
   .preq-age { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
   .preq-age.old { color: #c0392b; font-weight: 700; }
+  .preq-chase { border: 1px solid var(--warn-line); background: none; cursor: pointer; color: var(--warn); font-weight: 700; font-size: 12.5px; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .preq-chase:hover { background: var(--warn-line); color: #3b2800; }
   .preq-done { border: 0; background: none; cursor: pointer; color: var(--good); font-weight: 700; font-size: 13px; padding: 4px 0; white-space: nowrap; }
   .preq-done:hover { text-decoration: underline; }
   .preq.ticked .preq-main, .preq.ticked .preq-age { text-decoration: line-through; color: var(--muted); font-weight: 400; }
@@ -1275,23 +1277,27 @@
   // ✉ opens a compose box rather than sending blind: the draft comes from the server (so what's on
   // screen is exactly what would go out) and is editable before it does.
   var mailDraft = null; // { btn, order, invoice }
-  function checkPrice(btn, row) {
+  function checkPrice(btn, row, chase) {
     var order = row && row.order ? String(row.order) : "";
     if (!order) return;
     var inv = (row.invoice && String(row.invoice).trim()) ? String(row.invoice).trim() : "";
     var dup = pendingByOrder[order];
 
-    mailDraft = { btn: btn, order: order, invoice: inv };
+    mailDraft = { btn: btn, order: order, invoice: inv, chase: !!chase };
     $("mailTo").innerHTML = "<b>To</b> " + esc(checkPriceTo.join(", ")) +
       (checkPriceCc.length ? "<br><b>Cc</b> " + esc(checkPriceCc.join(", ")) : "");
     $("mailWarn").hidden = !dup;
-    if (dup) $("mailWarn").textContent = "⚠ Already asked — " + ageLabel(daysSince(dup.sentAt)) + ", still unanswered.";
+    if (dup) {
+      $("mailWarn").textContent = "⚠ Already asked — " + ageLabel(daysSince(dup.sentAt)) +
+        (dup.chasedAt ? ", " + chaseLabel(daysSince(dup.chasedAt)) : "") +
+        ", still unanswered. Sending again updates that request rather than adding another.";
+    }
     $("mailSubject").textContent = "Loading…";
     $("mailBody").value = "";
     $("mailSend").disabled = true;
     $("mailModal").hidden = false;
 
-    fetch("/api/check-price/draft?order=" + encodeURIComponent(order) + (inv ? "&invoice=" + encodeURIComponent(inv) : ""),
+    fetch("/api/check-price/draft?order=" + encodeURIComponent(order) + (inv ? "&invoice=" + encodeURIComponent(inv) : "") + (chase ? "&chase=1" : ""),
       { headers: ownerCode ? { "x-owner-code": ownerCode } : {} })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
@@ -1315,7 +1321,7 @@
       headers: ownerCode
         ? { "Content-Type": "application/json", "x-owner-code": ownerCode }
         : { "Content-Type": "application/json" },
-      body: JSON.stringify({ order: d.order, invoice: d.invoice || null, message: body })
+      body: JSON.stringify({ order: d.order, invoice: d.invoice || null, message: body, chase: !!d.chase })
     })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
@@ -1342,6 +1348,7 @@
     return Math.floor((Date.now() - d.getTime()) / 86400000);
   }
   function ageLabel(n) { return n == null ? "" : n <= 0 ? "sent today" : n === 1 ? "sent yesterday" : "sent " + n + " days ago"; }
+  function chaseLabel(n) { return n == null ? "" : n <= 0 ? "chased today" : n === 1 ? "chased yesterday" : "chased " + n + " days ago"; }
   function renderPending() {
     // a request only counts as outstanding while it's unticked — this also drives the row ✉ state
     pendingByOrder = {};
@@ -1352,15 +1359,26 @@
     card.style.display = "";
     $("pendingCount").textContent = "(" + live.length + ")";
     $("pendingList").innerHTML = pendingReqs.map(function (p) {
-      var n = daysSince(p.sentAt), old = n != null && n >= 3;
+      var n = daysSince(p.sentAt), c = p.chasedAt ? daysSince(p.chasedAt) : null;
+      // silence is only "old" when nothing has been said for three days — a chase today resets that
+      var quiet = c == null ? n : c, old = quiet != null && quiet >= 3;
       var inv = p.invoice ? " · invoice " + esc(String(p.invoice)) : "";
+      var age = ageLabel(n) + (c == null ? "" : " · " + chaseLabel(c));
       return '<div class="preq' + (p.ticked ? " ticked" : "") + '" data-id="' + p.id + '">' +
         '<span class="preq-main"><b>' + esc(String(p.order)) + '</b>' +
           '<span class="preq-meta">' + inv + '</span></span>' +
-        '<span class="preq-age' + (old && !p.ticked ? " old" : "") + '">' + esc(ageLabel(n)) + '</span>' +
+        '<span class="preq-age' + (old && !p.ticked ? " old" : "") + '">' + esc(age) + '</span>' +
+        (p.ticked || !checkPriceOn ? "" : '<button class="preq-chase" type="button">Chase again</button>') +
         '<button class="preq-done" type="button">' + (p.ticked ? "Undo" : "Mark replied") + '</button>' +
         '</div>';
     }).join("");
+    Array.prototype.slice.call($("pendingList").querySelectorAll(".preq-chase")).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var id = parseInt(b.parentNode.dataset.id, 10);
+        var p = pendingReqs.filter(function (x) { return x.id === id; })[0];
+        if (p) checkPrice(b, { order: p.order, invoice: p.invoice }, true); // true = this is a follow-up
+      });
+    });
     Array.prototype.slice.call($("pendingList").querySelectorAll(".preq-done")).forEach(function (b) {
       b.addEventListener("click", function () {
         var el = b.parentNode, id = parseInt(el.dataset.id, 10);

@@ -99,6 +99,10 @@ async function initDb() {
       replied_at TIMESTAMPTZ
     );
   `);
+  // A chase re-sends against the SAME request rather than logging a second one, so the chase list
+  // keeps one line per order: when it was first asked for, and when it was last chased.
+  await pool.query(`ALTER TABLE price_requests ADD COLUMN IF NOT EXISTS chased_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE price_requests ADD COLUMN IF NOT EXISTS chase_count INTEGER NOT NULL DEFAULT 0`);
   // Backfill legacy rows (saved before per-supplier tagging): Comfi/Imperial = Mattressshire, else Southern.
   await pool.query(`UPDATE orders SET supplier = 'mattressshire' WHERE supplier IS NULL AND (model ILIKE '%comfi%' OR model ILIKE '%imperial%')`);
   await pool.query(`UPDATE orders SET supplier = 'southern' WHERE supplier IS NULL`);
@@ -264,15 +268,28 @@ function escHtml(s) {
 
 // The wording the operator sees in the compose box IS the wording that gets sent — both come from
 // here, so the preview can never drift from the email that actually goes out.
-function subjectFor(order, invoice) {
-  return "Price breakdown request — order " + order + (invoice ? " (invoice " + invoice + ")" : "");
+function subjectFor(order, invoice, chase) {
+  return (chase ? "Reminder: " : "") +
+    "Price breakdown request — order " + order + (invoice ? " (invoice " + invoice + ")" : "");
 }
-function defaultBody(order, invoice) {
+function defaultBody(order, invoice, chase) {
+  const what = invoice ? "order " + order + " on invoice " + invoice : "order " + order;
+  if (chase) {
+    return [
+      "Hello,",
+      "",
+      "Just following up on my earlier request for a price breakdown for " + what + " — I haven't had a reply yet.",
+      "",
+      "Could you send it over when you get a chance?",
+      "",
+      "Many thanks,",
+      EMAIL_SIGNOFF,
+    ].join("\n");
+  }
   return [
     "Hello,",
     "",
-    "Please could you send me a price breakdown for " +
-      (invoice ? "order " + order + " on invoice " + invoice : "order " + order),
+    "Please could you send me a price breakdown for " + what,
     "",
     "Many thanks,",
     EMAIL_SIGNOFF,
@@ -315,7 +332,8 @@ app.get("/api/check-price/draft", (req, res) => {
   const order = String(req.query.order || "").trim();
   if (!order) return res.status(400).json({ error: "order number required" });
   const invoice = String(req.query.invoice || "").trim();
-  res.json({ subject: subjectFor(order, invoice), body: defaultBody(order, invoice), to: CHECK_TO, cc: CHECK_CC });
+  const chase = req.query.chase === "1"; // following up on a request that's still unanswered
+  res.json({ subject: subjectFor(order, invoice, chase), body: defaultBody(order, invoice, chase), to: CHECK_TO, cc: CHECK_CC });
 });
 
 app.post("/api/check-price", async (req, res) => {
@@ -330,8 +348,9 @@ app.post("/api/check-price", async (req, res) => {
   // the starting point — and the fallback for a caller that sends no body at all.
   const edited = typeof b.message === "string" ? b.message.trim() : "";
   if (edited.length > 5000) return res.status(400).json({ error: "message too long" });
-  const text = edited || defaultBody(order, invoice);
-  const subject = subjectFor(order, invoice);
+  const chase = !!b.chase;
+  const text = edited || defaultBody(order, invoice, chase);
+  const subject = subjectFor(order, invoice, chase);
   const html = bodyToHtml(text);
 
   try {
@@ -342,11 +361,21 @@ app.post("/api/check-price", async (req, res) => {
     let requestId = null;
     if (pool) {
       try {
-        const r = await pool.query(
-          "INSERT INTO price_requests (order_no, invoice, supplier) VALUES ($1,$2,$3) RETURNING id",
+        // one line per outstanding order: a chase stamps the existing row instead of adding another
+        const up = await pool.query(
+          `UPDATE price_requests SET chased_at = now(), chase_count = chase_count + 1, invoice = COALESCE($2, invoice)
+            WHERE order_no = $1 AND supplier = $3 AND replied_at IS NULL RETURNING id`,
           [order, invoice || null, SUPPLIER]
         );
-        requestId = r.rows[0].id;
+        if (up.rowCount) {
+          requestId = up.rows[0].id;
+        } else {
+          const r = await pool.query(
+            "INSERT INTO price_requests (order_no, invoice, supplier) VALUES ($1,$2,$3) RETURNING id",
+            [order, invoice || null, SUPPLIER]
+          );
+          requestId = r.rows[0].id;
+        }
       } catch (e) { console.error("check-price: sent but not logged:", e.message); }
     }
     res.json({ ok: true, id: id, requestId: requestId, to: CHECK_TO, cc: CHECK_CC });
@@ -386,7 +415,7 @@ app.get("/api/check-price/pending", async (req, res) => {
   if (!pool || !isOwner(req)) return res.json([]);
   try {
     const { rows } = await pool.query(
-      `SELECT id, order_no AS "order", invoice, sent_at AS "sentAt"
+      `SELECT id, order_no AS "order", invoice, sent_at AS "sentAt", chased_at AS "chasedAt", chase_count AS "chaseCount"
          FROM price_requests
         WHERE replied_at IS NULL AND supplier = $1
         ORDER BY sent_at ASC`, [SUPPLIER]
