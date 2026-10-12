@@ -325,6 +325,9 @@
   .preq-age.old { color: #c0392b; font-weight: 700; }
   .preq-chase { border: 1px solid var(--warn-line); background: none; cursor: pointer; color: var(--warn); font-weight: 700; font-size: 12.5px; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
   .preq-chase:hover { background: var(--warn-line); color: #3b2800; }
+  .preq-credit { border: 1px solid var(--line-strong); background: none; cursor: pointer; color: var(--body); font-weight: 700; font-size: 12.5px; padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+  .preq-credit:hover { border-color: var(--accent); color: var(--accent-deep); }
+  .dm-credit { margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: rgba(224,168,0,.14); border: 1px solid rgba(224,168,0,.55); font-size: 13px; color: var(--ink); line-height: 1.45; }
   .preq-done { border: 0; background: none; cursor: pointer; color: var(--good); font-weight: 700; font-size: 13px; padding: 4px 0; white-space: nowrap; }
   .preq-done:hover { text-decoration: underline; }
   .preq.ticked .preq-main, .preq.ticked .preq-age { text-decoration: line-through; color: var(--muted); font-weight: 400; }
@@ -728,6 +731,27 @@
   </div>
 </div>
 
+<div class="modal" id="creditModal" hidden>
+  <div class="modal-backdrop" id="creditBackdrop"></div>
+  <div class="modal-card">
+    <div class="mail-h">Credit promised</div>
+    <div class="mail-to" id="creditFor"></div>
+    <label class="fld">
+      <span class="lab">Credit amount £ <span class="hint">leave blank if they haven’t said yet</span></span>
+      <input type="number" id="creditAmt" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="—" autocomplete="off">
+    </label>
+    <label class="fld" style="margin-top:12px;">
+      <span class="lab">What was agreed</span>
+      <input type="text" id="creditNote" class="txtin" placeholder="e.g. credit note to follow for the extra bolster" autocomplete="off">
+    </label>
+    <div class="mail-foot">
+      <span class="mail-note" id="creditMsg">Saved on the order, where credits are chased.</span>
+      <button class="btn ghost" id="creditCancel" type="button">Cancel</button>
+      <button class="btn" id="creditSave" type="button">Save credit</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="invoiceModal" hidden>
   <div class="modal-backdrop" id="invoiceBackdrop"></div>
   <div class="modal-card" id="invoiceCard"></div>
@@ -757,8 +781,11 @@
   // Roll a whole invoice up from its saved mattress lines: mattresses (net) + the supplier's extra
   // line (Southern foam surcharge = % of mattresses, or Mattressshire boxes = qty x price) + VAT.
   function computeInvoice(items, boxQty) {
-    var mattressNet = 0, diffSum = 0, bothCount = 0, hasInv = false;
+    var mattressNet = 0, diffSum = 0, bothCount = 0, hasInv = false, creditSum = 0, creditCount = 0, creditTbc = 0;
     (items || []).forEach(function (r) {
+      // a credit the supplier has agreed but not yet issued — shown, never deducted, until it arrives
+      if (r.creditAmount != null) { creditSum += Number(r.creditAmount); creditCount++; }
+      else if (r.creditNote) { creditTbc++; }
       if (r.agreed != null) { mattressNet += Number(r.agreed); hasInv = true; }
       if (r.agreed != null && r.calc != null) { diffSum += priceDiff(r.agreed, r.calc); bothCount++; } // invoiced - calculated, to the penny
     });
@@ -768,7 +795,8 @@
     var net = mattressNet + surcharge + boxes;
     var vat = net * (INV.vatPct || 0);
     return { count: (items || []).length, hasInv: hasInv, mattressNet: mattressNet, diffSum: diffSum, bothCount: bothCount,
-             surcharge: surcharge, surchargePct: pct, boxes: boxes, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
+             surcharge: surcharge, surchargePct: pct, boxes: boxes,
+             creditSum: creditSum, creditCount: creditCount, creditTbc: creditTbc, boxQty: boxQty || 0, net: net, vat: vat, gross: net + vat };
   }
 
   // Southern's foam surcharge has changed over time (see surchargeRates in catalog.js, newest first). An
@@ -1378,6 +1406,7 @@
           '<span class="preq-meta">' + inv + '</span></span>' +
         '<span class="preq-age' + (old && !p.ticked ? " old" : "") + '">' + esc(age) + '</span>' +
         (p.ticked || !checkPriceOn ? "" : '<button class="preq-chase" type="button">Chase again</button>') +
+        (p.ticked || !lookupEnabled ? "" : '<button class="preq-credit" type="button">Credit promised</button>') +
         '<button class="preq-done" type="button">' + (p.ticked ? "Undo" : "Mark replied") + '</button>' +
         '</div>';
     }).join("");
@@ -1386,6 +1415,13 @@
         var id = parseInt(b.parentNode.dataset.id, 10);
         var p = pendingReqs.filter(function (x) { return x.id === id; })[0];
         if (p) checkPrice(b, { order: p.order, invoice: p.invoice }, true); // true = this is a follow-up
+      });
+    });
+    Array.prototype.slice.call($("pendingList").querySelectorAll(".preq-credit")).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var id = parseInt(b.parentNode.dataset.id, 10);
+        var p = pendingReqs.filter(function (x) { return x.id === id; })[0];
+        if (p) openCreditBox(p);
       });
     });
     Array.prototype.slice.call($("pendingList").querySelectorAll(".preq-done")).forEach(function (b) {
@@ -1409,6 +1445,50 @@
       body: JSON.stringify({ replied: replied })
     }).catch(function () { p.ticked = !replied; renderPending(); renderSaved(); }); // put it back if it didn't stick
   }
+  // A supplier answering a chase often says "a credit note will be raised" rather than sending a
+  // breakdown. Credits belong to the ORDER (the order app chases them and marks them received), so
+  // this writes through to the order app and ticks the chase off in one go.
+  var creditDraft = null; // the chase row the credit is being recorded against
+  function openCreditBox(p) {
+    creditDraft = p;
+    $("creditFor").innerHTML = "<b>" + esc(String(p.order)) + "</b>" +
+      (p.invoice ? " \u00b7 invoice " + esc(String(p.invoice)) : "") +
+      "<br>Recorded on the order, so it shows on the order app\u2019s credit list and on this order from now on.";
+    $("creditAmt").value = "";
+    $("creditNote").value = "";
+    $("creditMsg").textContent = "Saved on the order, where credits are chased.";
+    $("creditSave").disabled = false;
+    $("creditModal").hidden = false;
+    $("creditAmt").focus();
+  }
+  function closeCreditModal() { $("creditModal").hidden = true; creditDraft = null; }
+  function saveCredit() {
+    if (!creditDraft) return;
+    var p = creditDraft;
+    var raw = $("creditAmt").value.trim();
+    var amount = raw === "" ? null : parseFloat(raw); // blank is fine — the figure often follows later
+    if (amount !== null && (isNaN(amount) || amount < 0)) { $("creditMsg").textContent = "That amount doesn\u2019t look right."; return; }
+    $("creditSave").disabled = true;
+    $("creditMsg").textContent = "Saving\u2026";
+    fetch("/api/order/credit", {
+      method: "POST",
+      headers: ownerCode ? { "Content-Type": "application/json", "x-owner-code": ownerCode } : { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: p.order, amount: amount, note: $("creditNote").value.trim() || null })
+    })
+      .then(function (r) { return r.ok ? r.json() : r.json().catch(function () { return null; }).then(function (j) { throw new Error((j && j.error) || "save failed"); }); })
+      .then(function () {
+        closeCreditModal();
+        markReplied(p, true);   // the chase is answered — the credit is tracked on the order now
+        return refreshOrders(); // pull the credit onto the saved rows so the invoice shows it
+      })
+      .catch(function (e) {
+        $("creditSave").disabled = false;
+        $("creditMsg").textContent = (e && e.message === "order not found in the order app")
+          ? "That order isn\u2019t in the order app — add the credit there instead."
+          : "Couldn\u2019t save it — try again.";
+      });
+  }
+
   function carriageLabel() {
     var q = Math.max(1, parseInt(state.carriageQty, 10) || 1), x = q > 1 ? " × " + q : "";
     if (state.carriage === "dpd" || state.carriage === "dx") {
@@ -1907,6 +1987,11 @@
       '<div class="dm-line"><span class="n">Calculated</span><span class="v" id="dmCalc">' + calc + '</span></div>' +
       deltaHtml +
       '<div class="dm-total"><span class="tl">Invoiced price</span><span class="tv" id="dmAgreed"' + (agreedColor ? ' style="color:' + agreedColor + '"' : '') + '>' + agreed + '</span></div>' +
+      (r.creditAmount != null || r.creditNote
+        ? '<div class="dm-credit">\u26a0 <b>Credit due from the supplier</b>' +
+            (r.creditAmount != null ? ' \u2014 <b>' + money(r.creditAmount) + '</b>' : ' \u2014 amount still to come') +
+            (r.creditNote ? '<br><span style="color:var(--muted)">' + esc(r.creditNote) + '</span>' : '') + '</div>'
+        : "") +
       '<div class="dm-sub" style="margin-top:12px">Saved ' + esc(when) + '</div>';
     $("detailModal").hidden = false;
     $("dmClose").addEventListener("click", closeDetail);
@@ -2117,6 +2202,14 @@
     } else {
       checkHtml = '<div class="dm-sub" style="margin-top:12px">Enter the Invoice total to check it against this.</div>';
     }
+    var creditHtml = "";
+    if (!isLocked() && (c.creditCount || c.creditTbc)) {
+      var bits = [];
+      if (c.creditCount) bits.push(money(c.creditSum) + " agreed on " + c.creditCount + " order" + (c.creditCount === 1 ? "" : "s"));
+      if (c.creditTbc) bits.push(c.creditTbc + " with the amount still to come");
+      creditHtml = '<div class="dm-credit">\u26a0 <b>Credit due from the supplier</b> \u2014 ' + bits.join(", ") +
+        '. Not deducted above: the invoice still reconciles against what they billed.</div>';
+    }
     var w = winnerOf(c.diffSum);
     var winBig = (!isLocked() && c.bothCount) ? '<div class="winbig ' + w.cls + '"><div class="wl">' + w.who + '</div><div class="wa">' + w.amount + '</div></div>' : '';
     $("invoiceCard").innerHTML =
@@ -2128,7 +2221,7 @@
       (extraLine ? '<div class="dm-sec-h">Charges</div>' + extraLine : '') +
       '<div style="margin-top:8px"></div>' + netLine + vatLine +
       '<div class="dm-total"><span class="tl">Invoice total</span><span class="tv">' + money(c.gross) + '</span></div>' +
-      checkHtml;
+      checkHtml + creditHtml;
     $("invoiceModal").hidden = false;
     $("invClose").addEventListener("click", closeInvoiceModal);
   }
@@ -2235,12 +2328,15 @@
   $("ownerBtn").addEventListener("click", ownerToggle);
   $("orderNo").addEventListener("input", function () { this.classList.remove("err"); updateQuoteHeader(); });
   $("detailBackdrop").addEventListener("click", closeDetail);
+  $("creditBackdrop").addEventListener("click", closeCreditModal);
+  $("creditCancel").addEventListener("click", closeCreditModal);
+  $("creditSave").addEventListener("click", saveCredit);
   $("mailBackdrop").addEventListener("click", closeMailModal);
   $("mailCancel").addEventListener("click", closeMailModal);
   $("mailSend").addEventListener("click", sendMail);
   $("calcInvoiceBtn").addEventListener("click", openInvoiceSummary);
   $("invoiceBackdrop").addEventListener("click", closeInvoiceModal);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeDetail(); closeMailModal(); } });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeDetail(); closeMailModal(); closeCreditModal(); } });
   $("orderNo").addEventListener("input", function () {
     if (!lookupEnabled) return;
     var q = this.value.trim();

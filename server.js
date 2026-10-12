@@ -87,6 +87,11 @@ async function initDb() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice TEXT`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_total NUMERIC`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS box_qty NUMERIC`);
+  // A credit the supplier has agreed but not yet issued. The ORDER APP owns credits (its Credit due
+  // banner is the chase list); these two columns are only so the invoice summary can show what's
+  // still owed on an invoice without calling across for every row.
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS credit_amount NUMERIC`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS credit_note TEXT`);
   // Every "check price" email is logged here so the outstanding ones can be chased. A row is
   // OUTSTANDING until replied_at is stamped by the owner ticking it off.
   await pool.query(`
@@ -132,7 +137,7 @@ app.get("/api/orders", async (req, res) => {
     let where = "", params = [];
     if (SUPPLIER !== "combined") { where = "WHERE supplier = $1"; params = [SUPPLIER]; }
     const { rows } = await pool.query(
-      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram, supplier, invoice, invoice_total AS "invoiceTotal", box_qty AS "boxQty"
+      `SELECT id, order_no AS "order", created_at AS ts, model, size, depth, calc, agreed, carriage, lines, diagram, supplier, invoice, invoice_total AS "invoiceTotal", box_qty AS "boxQty", credit_amount AS "creditAmount", credit_note AS "creditNote"
          FROM orders ${where} ORDER BY created_at DESC LIMIT 2000`, params
     );
     const gated = OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE;
@@ -460,6 +465,44 @@ app.get("/api/order/lookup/:orderNumber", async (req, res) => {
     if (!r.ok) return res.status(r.status).json({ error: "order not found" });
     res.json(await r.json());
   } catch (e) { console.error("order/lookup", e.message); res.status(502).json({ error: "order app unreachable" }); }
+});
+
+// A supplier has agreed a credit (usually in reply to a price-breakdown chase). The order app owns
+// credits, so this writes there first — it's the only write across the bridge — and only mirrors the
+// figures locally once that succeeds, so the two can't disagree. Owner-gated like the other writes.
+app.post("/api/order/credit", async (req, res) => {
+  if (!lookupEnabled) return res.status(503).json({ error: "lookup disabled" });
+  if (OWNER_CODE && req.get("x-owner-code") !== OWNER_CODE) return res.status(403).json({ error: "locked" });
+  const b = req.body || {};
+  const order = String(b.order || "").trim();
+  if (!order) return res.status(400).json({ error: "order number required" });
+  const amount = (b.amount == null || b.amount === "") ? null : Number(b.amount);
+  if (amount !== null && (!isFinite(amount) || amount < 0)) return res.status(400).json({ error: "bad amount" });
+  const note = typeof b.note === "string" ? b.note.trim().slice(0, 500) : null;
+
+  try {
+    const r = await fetch(ORDER_APP_URL + "/api/pricing/credit/" + encodeURIComponent(order), {
+      method: "POST",
+      headers: { "x-api-key": PRICING_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: amount, note: note }),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      console.error("order/credit: order app said " + r.status + " " + txt.slice(0, 200));
+      return res.status(r.status === 404 ? 404 : 502).json({ error: r.status === 404 ? "order not found in the order app" : "order app refused" });
+    }
+    const saved = await r.json();
+    // mirror onto this deployment's saved rows for that order (there may be none yet — that's fine)
+    if (pool) {
+      try {
+        await pool.query(
+          `UPDATE orders SET credit_amount = $1, credit_note = $2 WHERE order_no = $3 AND supplier = $4`,
+          [amount, note, order, SUPPLIER]
+        );
+      } catch (e) { console.error("order/credit: written to the order app but not mirrored:", e.message); }
+    }
+    res.json({ ok: true, orderNumber: saved.orderNumber || order, creditAmount: amount, creditNote: note });
+  } catch (e) { console.error("order/credit", e.message); res.status(502).json({ error: "order app unreachable" }); }
 });
 
 const PORT = process.env.PORT || 3000;
