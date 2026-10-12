@@ -581,6 +581,10 @@
             <option value="manual">Other — enter price</option>
           </select></div>
         </label>
+        <label class="fld" id="carriageQtyField" hidden style="margin-top:14px;">
+          <span class="lab">Parcels <span class="hint">DPD and DX are charged per parcel</span></span>
+          <div class="select-wrap"><select id="carriageQty"><option value="1">1 parcel</option><option value="2">2 parcels</option><option value="3">3 parcels</option><option value="4">4 parcels</option><option value="5">5 parcels</option><option value="6">6 parcels</option><option value="7">7 parcels</option><option value="8">8 parcels</option><option value="9">9 parcels</option><option value="10">10 parcels</option></select></div>
+        </label>
         <label class="fld" id="carriageManual" hidden>
           <span class="lab">Carriage price £</span>
           <input type="number" id="carriageAmt" class="txtin num" step="0.01" min="0" inputmode="decimal" placeholder="£" autocomplete="off">
@@ -810,7 +814,7 @@
   // Surcharges / add-ons — injected per-supplier by the server (see catalog.js).
   var EXTRAS = CATALOG.extras || [];
 
-  var state = { sku: "", buildId: "", size: "", depthIdx: null, extras: {}, carriage: "none", carriageAmt: "" };
+  var state = { sku: "", buildId: "", size: "", depthIdx: null, extras: {}, carriage: "none", carriageAmt: "", carriageQty: 1 };
   var dirty = false; // unsaved changes since last Save/Clear
   var buildAutoResolved = false; // true when the exact build was auto-picked from the order's supplier code (hide the picker, show a confirmation chip)
   function markDirty() { dirty = true; var e = document.getElementById("clearErr"); if (e) e.hidden = true; }
@@ -912,10 +916,12 @@
     $("carriage").addEventListener("change", function () {
       state.carriage = this.value;
       $("carriageManual").hidden = (this.value !== "manual");
+      $("carriageQtyField").hidden = (this.value !== "dpd" && this.value !== "dx"); // per-parcel couriers only
       // pick up any value already sitting in the box (e.g. browser-restored after a refresh)
       if (this.value === "manual") state.carriageAmt = $("carriageAmt").value;
       render();
     });
+    $("carriageQty").addEventListener("change", function () { state.carriageQty = parseInt(this.value, 10) || 1; render(); });
     $("carriageAmt").addEventListener("input", function () { state.carriageAmt = this.value; render(); });
     $("carriageAmt").addEventListener("change", function () { state.carriageAmt = this.value; render(); });
   }
@@ -1083,8 +1089,11 @@
     // carriage
     var carrAmt = 0;
     if (state.carriage === "dpd" || state.carriage === "dx") {
-      carrAmt = CARRIAGE[state.carriage].price;
-      lines.push({ name: "Carriage — " + CARRIAGE[state.carriage].label, val: carrAmt });
+      // a multi-piece order goes as several parcels, each charged at the courier's rate
+      var cq = Math.max(1, parseInt(state.carriageQty, 10) || 1);
+      carrAmt = CARRIAGE[state.carriage].price * cq;
+      lines.push({ name: "Carriage — " + CARRIAGE[state.carriage].label,
+                   note: cq > 1 ? cq + " parcels × " + money(CARRIAGE[state.carriage].price) : null, val: carrAmt });
     } else if (state.carriage === "manual") {
       var cm = parseFloat(state.carriageAmt) || 0;
       if (cm > 0) { carrAmt = cm; lines.push({ name: "Carriage (manual)", val: cm }); }
@@ -1401,8 +1410,11 @@
     }).catch(function () { p.ticked = !replied; renderPending(); renderSaved(); }); // put it back if it didn't stick
   }
   function carriageLabel() {
-    if (state.carriage === "dpd") return "DPD £15";
-    if (state.carriage === "dx") return "DX £30";
+    var q = Math.max(1, parseInt(state.carriageQty, 10) || 1), x = q > 1 ? " × " + q : "";
+    if (state.carriage === "dpd" || state.carriage === "dx") {
+      var c = CARRIAGE[state.carriage];
+      return c.label + x + " £" + (c.price * q).toFixed(0);
+    }
     if (state.carriage === "manual") { var m = parseFloat(state.carriageAmt) || 0; return m > 0 ? "Manual £" + m.toFixed(2) : "Manual"; }
     return "None";
   }
@@ -1492,6 +1504,7 @@
     state.sku = ""; state.buildId = ""; state.size = ""; state.depthIdx = null; buildAutoResolved = false;
     $("sku").value = ""; refreshBuild(); $("size").value = "";
     state.carriage = "none"; state.carriageAmt = ""; $("carriage").value = "none"; $("carriageManual").hidden = true; $("carriageAmt").value = "";
+    state.carriageQty = 1; $("carriageQty").value = "1"; $("carriageQtyField").hidden = true;
     Array.prototype.slice.call($("extras").querySelectorAll(".ex")).forEach(function (row) {
       var id = row.dataset.id;
       var qsel = row.querySelector("select.qty"), csel = row.querySelector("select.choice"), tog = row.querySelector("input.tog");
@@ -1950,7 +1963,14 @@
       var carr = name.match(/^Carriage — (.+)$/);
       if (carr) {
         var key = Object.keys(CARRIAGE).filter(function (k) { return CARRIAGE[k].label === carr[1]; })[0];
-        if (key) { state.carriage = key; $("carriage").value = key; } else missed.push(name);
+        if (key) {
+          // parcels from the note ("3 parcels × £15"), else from the amount, else the old single-parcel default
+          var per = CARRIAGE[key].price, qn = parseInt(l.note, 10);
+          if (!(qn > 0) && per) qn = Math.round(Number(l.val) / per);
+          qn = Math.min(10, Math.max(1, qn || 1));
+          state.carriage = key; state.carriageQty = qn;
+          $("carriage").value = key; $("carriageQty").value = String(qn); $("carriageQtyField").hidden = false;
+        } else missed.push(name);
         return;
       }
       if (name === "Carriage (manual)") {
